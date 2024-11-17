@@ -93,8 +93,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=im594/mininote-md:buildcache
-          cache-to: type=registry,ref=im594/mininote-md:buildcache,mode=max
+          no-cache: true
           build-args: |
             NODE_ENV=production
 
@@ -139,8 +138,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=im594/mininote-md:buildcache
-          cache-to: type=registry,ref=im594/mininote-md:buildcache,mode=max
+          no-cache: true
+          build-args: |
+            NODE_ENV=production
 
       - name: Cleanup PR image
         run: |
