@@ -1,7 +1,7 @@
 # 使用 Node.js 18 Alpine 作为基础镜像
 FROM node:18-alpine
 
-# 安装 su-exec
+# 安装 su-exec 用于权限处理
 RUN apk add --no-cache su-exec
 
 # 设置工作目录
@@ -16,11 +16,14 @@ COPY frontend ./frontend
 COPY backend ./backend
 
 # 创建启动脚本
-RUN echo '#!/bin/sh\n\
-mkdir -p /app/data/notes /app/data/settings /app/data/history\n\
-chown -R node:node /app/data\n\
-exec su-exec node node backend/src/server.js' > /docker-entrypoint.sh && \
-    chmod +x /docker-entrypoint.sh
+COPY <<'EOF' /docker-entrypoint.sh
+#!/bin/sh
+mkdir -p /app/data/notes /app/data/settings /app/data/history
+chown -R node:node /app/data
+exec su-exec node node backend/src/server.js
+EOF
+
+RUN chmod +x /docker-entrypoint.sh
 
 # 设置环境变量
 ENV PORT=3456 \
