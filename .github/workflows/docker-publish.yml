@@ -56,10 +56,9 @@ jobs:
         with:
           images: im594/mininote-md
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is.default}}
-            type=sha
+            type=raw,value=latest
+            type=raw,value={{version}}
+            type=sha,prefix=sha-
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
