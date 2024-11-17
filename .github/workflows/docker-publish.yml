@@ -47,8 +47,13 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag v${{ steps.package-version.outputs.version }}
-          git push origin v${{ steps.package-version.outputs.version }}
+          VERSION=v${{ steps.package-version.outputs.version }}
+          if ! git rev-parse $VERSION >/dev/null 2>&1; then
+            git tag $VERSION
+            git push origin $VERSION
+          else
+            echo "Tag $VERSION already exists, skipping tag creation"
+          fi
         
       - name: Docker meta
         id: meta
