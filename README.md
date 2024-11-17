@@ -10,8 +10,8 @@
 
 ### 部署步骤
 ```bash
-git clone https://github.com/your-username/mini-note-md.git
-cd mini-note-md/backend
+git clone https://github.com/IM594/mininote-md.git
+cd mininote-md/backend
 npm install
 npm start
 ```
