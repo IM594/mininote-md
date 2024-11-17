@@ -9,7 +9,8 @@
   "dependencies": {
     "express": "^4.17.1",
     "cookie-parser": "^1.4.6",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "crypto": "^1.0.1"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
