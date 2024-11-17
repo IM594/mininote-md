@@ -3,8 +3,8 @@
   "version": "1.0.4",
   "main": "backend/src/server.js",
   "scripts": {
-    "start": "node backend/src/server.js",
-    "dev": "nodemon backend/src/server.js",
+    "start": "NODE_ENV=production node backend/src/server.js",
+    "dev": "NODE_ENV=development nodemon backend/src/server.js",
     "release": "npm version patch -m \"Release %s\"",
     "postversion": "git push && git push --tags"
   },

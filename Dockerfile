@@ -14,9 +14,13 @@ RUN npm install --production
 COPY frontend ./frontend
 COPY backend ./backend
 
-# 创建必要的数据目录
-RUN mkdir -p data/notes data/settings data/history && \
-    chmod -R 777 data
+# 创建必要的数据目录并设置权限
+RUN mkdir -p /app/data/notes /app/data/settings /app/data/history && \
+    chown -R node:node /app/data && \
+    chmod -R 755 /app/data
+
+# 切换到非 root 用户
+USER node
 
 # 设置环境变量
 ENV PORT=3456 \
