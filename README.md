@@ -10,13 +10,14 @@
 
 ### 部署步骤
 ```bash
-git clone https://github.com/your-username/mini-note-md.git
-cd mini-note-md/backend
-npm install
-npm start
+git clone https://github.com/IM594/mininote-md.git
+cd mininote-md
+npm install  # 安装依赖
+npm start    # 启动服务
+npm run dev  # 开发模式启动（支持热重载）
 ```
 
-访问 `http://localhost:3457` 即可使用，默认密码为 `test0000`。
+访问 `http://localhost:3456` 即可使用，默认密码为 `test0000`。
 
 ## 主要功能
 

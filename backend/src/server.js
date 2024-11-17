@@ -4,7 +4,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-const PORT = process.env.PORT || 3457;
+const PORT = process.env.PORT || 3456;
 const NOTES_DIR = path.join(__dirname, '../../data/notes');
 const PASSWORD = process.env.PASSWORD || 'test0000';
 const SETTINGS_DIR = path.join(__dirname, '../../data/settings');
@@ -370,6 +370,14 @@ app.delete('/api/note/:path', authMiddleware, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// 添加一个简单的请求日志中间件
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+});
+
+// 修改监听配置
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Local access: http://localhost:${PORT}`);
 }); 

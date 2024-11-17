@@ -1,0 +1,16 @@
+{
+  "name": "mininote-md",
+  "version": "1.0.0",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "dev": "nodemon backend/src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "cookie-parser": "^1.4.6"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+} 
