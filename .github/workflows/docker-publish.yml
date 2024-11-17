@@ -66,11 +66,16 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
-    needs: release
+    needs: [release]
     if: |
       (github.event_name == 'pull_request') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release.outputs.SKIP_RELEASE != 'true')
     steps:
+      - name: Set PR status
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Running in PR mode - will build and test with temporary tag"
+          
       - name: Checkout code
         uses: actions/checkout@v4
         
