@@ -1,81 +1,80 @@
 # Mini Note MD
 
-一个极简的 Markdown 随手记应用，支持 Docker 一键部署。支持实时预览、历史记录、深色模式等功能。
+[English](README.md) | [中文](README.zh-CN.md)
 
-## 功能特点
+A minimalist Markdown note-taking app with real-time preview, version history, and dark mode support.
 
-### 📝 编辑器
-- 实时预览 Markdown 内容
-- 支持分屏/仅编辑/仅预览三种模式
-- 自定义字体大小和行高
-- Tab 键智能缩进
-- 多级列表自动缩进
-- 支持快捷键操作
-- 自动保存（每5分钟）
-- 手动保存 (Ctrl/Cmd + S)
+## Key Features
 
-### 🎨 Markdown 支持
-- 完整的 Markdown 语法支持
-- 代码语法高亮
-- 支持设置默认代码语言
-- 代码块一键复制
-- 支持多种编程语言
-- 表格支持
-- 图片支持
-- 数学公式支持
+### 📝 Editor
+- Real-time preview
+- Split/Edit/Preview modes
+- Customizable font size & line height
+- Smart Tab indentation
+- Auto-indent for lists
+- Keyboard shortcuts
+- Auto-save (every 5 minutes)
+- Manual save (Ctrl/Cmd + S)
 
-### 📅 笔记管理
-- 基于日期组织笔记
-- 笔记列表查看
-- 笔记搜索功能
-- 笔记预览/编辑/删除
-- 快速导航到前一天/后一天
+### 🎨 Markdown Support
+- Full Markdown syntax
+- Code syntax highlighting
+- Default code language setting
+- One-click code copying
+- Multiple programming languages
+- Table support
+- Image support
+- Math formula support
 
-### ⏱️ 历史记录
-- 自动保存历史版本
-- 查看/预览历史版本
-- 恢复历史版本
-- 删除单个历史记录
-- 清空所有历史记录
-- 历史记录自动清理（保留30天）
+### 📅 Note Management
+- Date-based organization
+- Note listing & search
+- Note preview/edit/delete
+- Quick navigation to previous/next day
 
-### 🎯 界面与主题
-- 深色/浅色主题自动切换
-- 响应式设计
-- 移动端适配
-- 可调节分屏比例
-- 自定义字体大小
-- 自定义行高
+### ⏱️ Version History
+- Automatic version saving
+- View/Preview versions
+- Version restore
+- Delete single version
+- Clear all versions
+- Auto-cleanup (30-day retention)
 
-### 🔐 安全特性
-- 密码保护
-- JWT token 认证
+### 🎯 UI & Themes
+- Auto dark/light theme
+- Responsive design
+- Mobile-friendly
+- Adjustable split view
+- Custom font sizes
+- Custom line heights
+
+### 🔐 Security
+- Password protection
+- JWT authentication
 - HttpOnly Cookie
-- 30天自动过期
-- 安全登出机制
+- 30-day token expiry
+- Secure logout
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Requirements
 - Node.js 18.0+
-- npm 或 Docker
+- npm or Docker
 
-### 部署方式
-
-#### 方式一：本地部署
-1. 克隆仓库
+### Local Setup
+1. Clone and run
    ```bash
    git clone https://github.com/IM594/mininote-md.git
    cd mininote-md
    npm install
-   npm start    # 启动服务
-   npm run dev  # 开发模式启动（支持热重载）
+   npm start    # production mode
+   npm run dev  # development mode (hot reload)
    ```
 
-2. 访问 `http://localhost:3456`，默认密码为 `test0000`
+2. Visit `http://localhost:3456`, default password: `test0000`
 
-#### 方式二：Docker 部署
-1. 直接运行
+### Docker Setup
+1. Direct run
    ```bash
    docker run -d \
      -p 3456:3456 \
@@ -86,7 +85,7 @@
      im594/mininote-md:latest
    ```
 
-2. 使用 docker-compose
+2. Using docker-compose
    ```yaml
    version: '3'
    services:
@@ -103,60 +102,60 @@
        restart: unless-stopped
    ```
    
-   运行：`docker-compose up -d`
+   Run: `docker-compose up -d`
 
-### 环境变量
-- `PORT`: 服务端口号，默认 3456
-- `PASSWORD`: 登录密码，默认 test0000
-- `SALT`: 用于生成 JWT 密钥的盐值
-- `NODE_ENV`: 环境模式，production/development
+### Environment Variables
+- `PORT`: Server port (default: 3456)
+- `PASSWORD`: Login password (default: test0000)
+- `SALT`: JWT secret salt
+- `NODE_ENV`: production/development
 
-## 使用说明
+## Usage
 
-### 快捷键
-- `Ctrl/Cmd + S`: 手动保存笔记
-- `Tab`: 增加缩进
-- `Shift + Tab`: 减少缩进
-- 列表自动缩进：在列表项中按 Tab 增加层级，Shift + Tab 减少层级
-- 空列表项回车：自动移除列表标记
+### Shortcuts
+- `Ctrl/Cmd + S`: Manual save
+- `Tab`: Increase indent
+- `Shift + Tab`: Decrease indent
+- List auto-indent: Tab in list items to increase level
+- Empty list item: Enter to remove list marker
 
-### 笔记管理
-- 点击右上角菜单按钮打开功能面板
-- 可以查看笔记列表、历史记录
-- 支持按标题搜索笔记
-- 可以预览、编辑或删除笔记
+### Note Management
+- Click top-right menu for features
+- View note list and history
+- Search notes by title
+- Preview, edit or delete notes
 
-### 编辑器设置
-- 可调整编辑器和预览区域的字体大小
-- 可调整编辑器和预览区域的行高
-- 可设置默认代码语言
-- 可调整分屏比例（拖动分隔线）
+### Editor Settings
+- Adjust editor/preview font size
+- Adjust editor/preview line height
+- Set default code language
+- Adjust split view ratio (drag divider)
 
-### 数据存储
-- 笔记保存在 `data/notes` 目录
-- 历史记录保存在 `data/history` 目录
-- 用户设置保存在 `data/settings` 目录
+### Data Storage
+- Notes: `data/notes` directory
+- History: `data/history` directory
+- Settings: `data/settings` directory
 
-## 待办事项
+## Roadmap
 
-- [x] Docker 部署支持
-- [x] 深色模式支持
-- [x] 历史记录管理
-- [x] 笔记列表搜索
-- [ ] 国际化支持
-- [ ] 笔记导出功能
+- [x] Docker support
+- [x] Dark mode
+- [x] Version history
+- [x] Note search
+- [ ] Internationalization
+- [ ] Note export
 
-## 技术栈
+## Tech Stack
 
-- 前端: 原生 JavaScript + Marked.js + Highlight.js
-- 后端: Node.js + Express + JWT
-- 数据存储: 文件系统
-- 容器化: Docker
+- Frontend: Vanilla JavaScript + Marked.js + Highlight.js
+- Backend: Node.js + Express + JWT
+- Storage: File system
+- Container: Docker
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request。
+Issues and Pull Requests are welcome.
 
-## 许可
+## License
 
 MIT License
