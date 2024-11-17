@@ -104,6 +104,32 @@
    
    运行：`docker-compose up -d`
 
+### 1Panel 部署
+1. 左侧菜单栏点击"容器" -> "镜像" -> "镜像管理"
+2. 拉取镜像：`im594/mininote-md:latest`
+3. 进入"容器" -> "创建容器"
+4. 配置容器：
+   - 名称：`mininote-md` 
+   - 镜像：`im594/mininote-md:latest`
+   - 端口 -> 暴露端口 -> 添加：`3456` `3456`
+   - 填写网络和 ipv4 地址
+   - 挂载 -> 添加
+       - 本机目录 `/data/mininote-md` 
+       - 权限：`读写`
+       - 容器目录：`/app/data`
+   - 重启策略：任意
+   - CPU 权重：1024（默认）
+   - CPU 限制：任意
+   - 内存限制：任意
+   - 环境变量：
+     ```
+     PASSWORD=<你的登录密码>
+     SALT=<你的安全盐值>
+     NODE_ENV=production
+     ```
+5. 点击"确认"
+
+
 ### 环境变量
 - `PORT`: 服务端口号（默认：3456）
 - `PASSWORD`: 登录密码（默认：test0000）

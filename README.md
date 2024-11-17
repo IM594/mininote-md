@@ -48,7 +48,7 @@ A minimalist Markdown note-taking app with real-time preview, version history, a
 - Custom font sizes
 - Custom line heights
 
-### 🔐 Security
+###  Security
 - Password protection
 - JWT authentication
 - HttpOnly Cookie
@@ -103,6 +103,31 @@ A minimalist Markdown note-taking app with real-time preview, version history, a
    ```
    
    Run: `docker-compose up -d`
+
+### 1Panel Setup
+1. Click "Container" -> "Images" -> "Image Management" in the left menu
+2. Pull image: `im594/mininote-md:latest`
+3. Go to "Container" -> "Create Container"
+4. Configure the container:
+   - Name: `mininote-md`
+   - Image: `im594/mininote-md:latest`
+   - Port -> Expose Port -> Add: `3456` `3456`
+   - Fill in network and ipv4 address
+   - Mount -> Add
+       - Local directory: `/data/mininote-md`
+       - Permission: `Read & Write`
+       - Container directory: `/app/data`
+   - Restart policy: Any
+   - CPU weight: 1024 (default)
+   - CPU limit: Any
+   - Memory limit: Any
+   - Environment variables:
+     ```
+     PASSWORD=<your-login-password>
+     SALT=<your-secure-salt>
+     NODE_ENV=production
+     ```
+5. Click "Confirm"
 
 ### Environment Variables
 - `PORT`: Server port (default: 3456)
