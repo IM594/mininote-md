@@ -6,7 +6,7 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = process.env.PORT || 3457;
 const NOTES_DIR = path.join(__dirname, '../../data/notes');
-const PASSWORD = process.env.PASSWORD || 'default-password';
+const PASSWORD = process.env.PASSWORD || 'test0000';
 const SETTINGS_DIR = path.join(__dirname, '../../data/settings');
 const HISTORY_DIR = path.join(__dirname, '../../data/history');
 
@@ -56,7 +56,6 @@ const staticOptions = {
 };
 
 app.use(express.text());
-// 使用新的静态文件配置
 app.use(express.static(path.join(__dirname, '../../frontend'), staticOptions));
 app.use(express.json());
 app.use(cookieParser());
