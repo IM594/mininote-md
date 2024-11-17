@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -10,7 +11,16 @@ const NOTES_DIR = path.join(__dirname, '../../data/notes');
 const PASSWORD = process.env.PASSWORD || 'test0000';
 const SETTINGS_DIR = path.join(__dirname, '../../data/settings');
 const HISTORY_DIR = path.join(__dirname, '../../data/history');
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-at-least-32-chars-long';
+
+// 使用 SALT 生成 JWT_SECRET
+const SALT = process.env.SALT || 'your-salt-here';
+const JWT_SECRET = crypto.createHash('sha256')
+                        .update(SALT + Date.now().toString())
+                        .digest('hex');
+
+// 为了安全起见,在启动时打印一个模糊的密钥提示
+console.log('JWT Secret hash:', JWT_SECRET.substring(0, 8) + '...');
+
 const JWT_EXPIRES = '30d'; // token 有效期30天
 
 // 添加缓存控制中间件
@@ -369,7 +379,7 @@ app.get('/api/notes', authMiddleware, async (req, res) => {
                 })
         );
         
-        // 按修改时间降序排序
+        // 按修改时间降序��序
         notes.sort((a, b) => b.lastModified - a.lastModified);
         res.json(notes);
     } catch (error) {
