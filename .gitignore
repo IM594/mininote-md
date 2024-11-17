@@ -1,5 +1,6 @@
 # 依赖目录
 node_modules/
+vendor/
 
 # 数据目录
 data/
