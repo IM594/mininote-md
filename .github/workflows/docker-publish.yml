@@ -97,11 +97,6 @@ jobs:
           cache-to: type=registry,ref=im594/mininote-md:buildcache,mode=max
           build-args: |
             NODE_ENV=production
-        
-      - name: Verify build
-        run: |
-          docker run --rm ${{ steps.meta.outputs.tags }} node -e "console.log('Node version:', process.version)"
-          docker run --rm ${{ steps.meta.outputs.tags }} ls -la /app/data
 
   pr_docker:
     runs-on: ubuntu-latest
