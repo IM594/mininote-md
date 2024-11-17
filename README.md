@@ -17,7 +17,7 @@ A minimalist Markdown note-taking app with real-time preview, version history, a
 - Manual save (Ctrl/Cmd + S)
 
 ### 🎨 Markdown Support
-- Full Markdown syntax
+- Support Markdown syntax
 - Code syntax highlighting
 - Default code language setting
 - One-click code copying
