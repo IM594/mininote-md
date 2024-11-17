@@ -22,7 +22,7 @@
     --menu-panel-width: 300px;
     --menu-panel-top: 70px;
     --menu-panel-right: 30px;
-    --theme-transition: background-color 0.3s ease, color 0.1s ease;
+    --theme-transition: background-color 0.3s ease, color 0.1s ease, border 0.3s ease;
 }
 
 [data-theme="dark"] {
