@@ -19,7 +19,7 @@ function handleUrl() {
 
 // 初始化编辑器
 async function initEditor() {
-    handleUrl();  // 添加这一行
+    handleUrl();
     
     const editor = document.getElementById('editor');
     const preview = document.getElementById('preview');
@@ -44,11 +44,11 @@ async function initEditor() {
         tables: true
     });
     
-    // 加载笔记
-    await loadNote(currentPath);
-    
-    // 加载设置
-    await loadSettings();
+    // 等待加载笔记和设置
+    await Promise.all([
+        loadNote(currentPath),
+        loadSettings()
+    ]);
     
     // 如果没有保存的视图模式，默认使用分屏模式
     if (!currentSettings || !currentSettings.viewMode) {
@@ -95,6 +95,9 @@ async function initEditor() {
     
     // 添加回车键处理
     editor.addEventListener('keydown', handleEnterKey);
+    
+    // 确保所有初始化都完成
+    return Promise.resolve();
 }
 
 // 渲染预览
@@ -357,10 +360,28 @@ function initCodeHighlight() {
 // 添加加载设置函数
 async function loadSettings() {
     try {
+        // 先尝试使用本地存储的设置
+        const localSettings = localStorage.getItem('editor_settings');
+        if (localSettings) {
+            try {
+                const settings = JSON.parse(localSettings);
+                currentSettings = settings;
+                applySettings(settings);
+            } catch (e) {
+                console.error('解析本地设置失败:', e);
+            }
+        }
+
+        // 从服务器获取最新设置
         const response = await fetch('/api/settings');
         if (response.ok) {
-            currentSettings = await response.json();
-            applySettings(currentSettings);
+            const serverSettings = await response.json();
+            // 只有当服务器设置与本地设置不同时才更新
+            if (JSON.stringify(serverSettings) !== localSettings) {
+                currentSettings = serverSettings;
+                localStorage.setItem('editor_settings', JSON.stringify(serverSettings));
+                applySettings(serverSettings);
+            }
         }
     } catch (error) {
         console.error('加载设置失败:', error);
@@ -439,6 +460,10 @@ async function saveSettings() {
     if (!currentSettings) return;
     
     try {
+        // 先更新本地存储
+        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+        
+        // 再保存到服务器
         await fetch('/api/settings', {
             method: 'POST',
             headers: {
@@ -496,7 +521,7 @@ async function showHistory() {
     }
 }
 
-// 修改创建历��记录模态框的函数
+// 修改创建历记录模态框的函数
 function createHistoryModal(histories) {
     const modal = document.createElement('div');
     modal.className = 'history-modal';
@@ -659,7 +684,7 @@ async function deleteAllHistory() {
             document.querySelector('.history-modal').remove();
             showNotification('已删除所有历史记录');
         } else {
-            throw new Error('删除失败');
+            throw new Error('删除失���');
         }
     } catch (error) {
         console.error('删除所有历史记录失败:', error);
@@ -748,7 +773,7 @@ function createNotesModal(notes) {
     
     modal.appendChild(content);
     
-    // 添加��索功能
+    // 添加索功能
     modal.addEventListener('input', (e) => {
         if (e.target.id === 'notes-search') {
             filterNotes(e.target.value);
@@ -796,7 +821,7 @@ function filterNotes(query) {
     });
 }
 
-// 修改 openNote 函数���添加关闭菜单面板的功能
+// 修改 openNote 函数添加关闭菜单面板的功能
 async function openNote(path) {
     try {
         currentPath = path;
@@ -1169,5 +1194,17 @@ async function previewNote(path) {
     } catch (error) {
         console.error('预览笔记失败:', error);
         showNotification('预览笔记失败', true);
+    }
+}
+
+// 修改 logout 函数，添加清除本地设置
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        // 清除本地设置
+        localStorage.removeItem('editor_settings');
+        window.location.reload();
+    } catch (error) {
+        console.error('登出失败:', error);
     }
 } 

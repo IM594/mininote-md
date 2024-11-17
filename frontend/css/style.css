@@ -743,7 +743,7 @@ button:disabled:hover {
     opacity: 0.8;
 }
 
-/* 修改值显示的样式，确保数值和单位连在一起 */
+/* 修改值显示的样式，���保数值和单位连在一起 */
 .control-group label span {
     color: var(--text-color);
     opacity: 0.8;
@@ -1292,5 +1292,40 @@ button {
 /* 确保control-group中的按钮也没有margin */
 .control-group button {
     margin: 0;
+}
+
+/* 在文件末尾添加 loading 相关样式 */
+.loading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    transition: opacity 0.3s ease;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-container.fade-out {
+    opacity: 0;
+    pointer-events: none;
 }
   
