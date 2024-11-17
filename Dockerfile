@@ -16,9 +16,12 @@ COPY backend ./backend
 
 # 创建必要的数据目录并设置权限
 RUN mkdir -p /app/data/notes /app/data/settings /app/data/history && \
-    # 使用 root 用户设置权限
-    chown -R root:root /app/data && \
-    chmod -R 777 /app/data  # 给所有用户读写权限
+    chown -R node:node /app/data && \
+    chmod -R 777 /app/data && \
+    # 确保子目录也有正确的权限
+    chmod -R 777 /app/data/notes && \
+    chmod -R 777 /app/data/settings && \
+    chmod -R 777 /app/data/history
 
 # 切换到非 root 用户
 USER node
