@@ -16,15 +16,7 @@ COPY backend ./backend
 
 # 创建必要的数据目录并设置权限
 RUN mkdir -p /app/data/notes /app/data/settings /app/data/history && \
-    chown -R root:root /app && \
-    chmod -R 755 /app && \
-    chmod -R 777 /app/data && \
-    chmod 777 /app/data/notes && \
-    chmod 777 /app/data/settings && \
-    chmod 777 /app/data/history
-
-# 切换到非 root 用户
-USER node
+    chmod -R 777 /app/data
 
 # 设置环境变量
 ENV PORT=3456 \
