@@ -16,7 +16,7 @@ npm install
 npm start
 ```
 
-访问 `http://localhost:3457` 即可使用,默认密码为 `test0000`。
+访问 `http://localhost:3457` 即可使用，默认密码为 `test0000`。
 
 ## 主要功能
 
