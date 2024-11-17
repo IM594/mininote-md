@@ -19,7 +19,19 @@ npm run dev  # 开发模式启动（支持热重载）
 
 访问 `http://localhost:3456` 即可使用，默认密码为 `test0000`。
 
+### 环境变量
+- `PORT`: 服务端口号，默认 3456
+- `PASSWORD`: 登录密码，默认 test0000
+- `JWT_SECRET`: JWT 密钥，建议在生产环境中设置
+- `NODE_ENV`: 环境模式，production/development
+
 ## 主要功能
+
+### 🔐 安全认证
+- JWT token 认证
+- HttpOnly Cookie 存储
+- 30天自动过期
+- 安全登出机制
 
 ### 📝 编辑器
 - 实时预览 Markdown 内容
@@ -52,6 +64,18 @@ npm run dev  # 开发模式启动（支持热重载）
 - 快捷键支持
 - 移动端适配
 
+## 安全说明
+
+- 使用 JWT 进行身份验证
+- Token 存储在 HttpOnly Cookie 中
+- 所有 API 请求都需要有效 token
+- 支持安全的登出机制
+- 建议在生产环境中：
+  1. 使用强密钥(JWT_SECRET)
+  2. 启用 HTTPS
+  3. 定期轮换密钥
+  4. 设置合适的密码
+
 ## 待办事项
 
 - [ ] Docker 部署支持
@@ -60,5 +84,5 @@ npm run dev  # 开发模式启动（支持热重载）
 ## 技术栈
 
 - 前端: 原生 JavaScript + Marked.js + Highlight.js
-- 后端: Node.js + Express
+- 后端: Node.js + Express + JWT
 - 数据存储: 文件系统
