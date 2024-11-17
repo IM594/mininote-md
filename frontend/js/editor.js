@@ -463,13 +463,18 @@ async function updateFontSize(target, size) {
     await saveSettings();
 }
 
-// 添加保存设置函数
+// 修改保存设置函数
 async function saveSettings() {
     if (!currentSettings) return;
     
     try {
-        // 先保存到服务器
-        await fetch('/api/settings', {
+        // 确保 currentSettings 是一个有效的对象
+        if (typeof currentSettings !== 'object') {
+            throw new Error('Invalid settings format');
+        }
+        
+        // 发送请求到服务器
+        const response = await fetch('/api/settings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -477,12 +482,24 @@ async function saveSettings() {
             body: JSON.stringify(currentSettings),
         });
         
-        // 成功后再保存到本地
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.details || error.error || '保存设置失败');
+        }
+        
+        // 成功后保存到本地
         localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+        
     } catch (error) {
         console.error('保存设置失败:', error);
+        showNotification('保存设置失败: ' + error.message, true);
+        
         // 即使服务器保存失败，也尝试保存到本地
-        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+        try {
+            localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+        } catch (localError) {
+            console.error('本地保存设置失败:', localError);
+        }
     }
 }
 
@@ -932,7 +949,7 @@ function updateFontSizePreview(target, value) {
     }, 500)();
 }
 
-// 添加 resizer 初始化函��
+// 添加 resizer 初始化函
 function initResizer() {
     const resizer = document.getElementById('resizer');
     const editorSection = document.querySelector('.editor-section');

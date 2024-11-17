@@ -225,46 +225,31 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// 添加获取设置的接口
-app.get('/api/settings', authMiddleware, async (req, res) => {
-    try {
-        const deviceType = req.headers['user-agent'].includes('Mobile') ? 'mobile' : 'desktop';
-        const settingsPath = path.join(SETTINGS_DIR, `${deviceType}.json`);
-        
-        try {
-            const settings = await fs.readFile(settingsPath, 'utf-8');
-            res.json(JSON.parse(settings));
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                // 如果设置文件不存在，返回默认设置
-                const defaultSettings = {
-                    editorFontSize: deviceType === 'mobile' ? 16 : 14,
-                    previewFontSize: deviceType === 'mobile' ? 16 : 14,
-                    theme: 'light',
-                    codeTheme: 'github',
-                    defaultView: 'edit'
-                };
-                res.json(defaultSettings);
-            } else {
-                throw error;
-            }
-        }
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to read settings' });
-    }
-});
-
-// 添加保存设置的接口
+// 修改保存设置的接口
 app.post('/api/settings', authMiddleware, async (req, res) => {
     try {
+        // 确保 SETTINGS_DIR 存在
+        await fs.mkdir(SETTINGS_DIR, { recursive: true });
+        
         const deviceType = req.headers['user-agent'].includes('Mobile') ? 'mobile' : 'desktop';
         const settingsPath = path.join(SETTINGS_DIR, `${deviceType}.json`);
         
-        await fs.mkdir(SETTINGS_DIR, { recursive: true });
-        await fs.writeFile(settingsPath, JSON.stringify(req.body, null, 2));
+        // 验证请求体是否为有效的 JSON 对象
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ error: 'Invalid settings format' });
+        }
+        
+        // 写入设置文件
+        await fs.writeFile(
+            settingsPath, 
+            JSON.stringify(req.body, null, 2),
+            { encoding: 'utf8', mode: 0o644 }
+        );
+        
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to save settings' });
+        console.error('保存设置失败:', error);
+        res.status(500).json({ error: 'Failed to save settings', details: error.message });
     }
 });
 
