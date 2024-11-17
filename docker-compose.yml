@@ -7,8 +7,7 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - PORT=3456
       - PASSWORD=your-secure-password
-      - SALT=your-secure-salt-here
+      - SALT=your-secure-salt
       - NODE_ENV=production
-    restart: unless-stopped 
+    restart: unless-stopped

@@ -96,8 +96,6 @@ jobs:
           no-cache: true
           build-args: |
             NODE_ENV=production
-            USER=node
-            GROUP=node
 
   pr_docker:
     runs-on: ubuntu-latest
