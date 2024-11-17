@@ -1,10 +1,12 @@
 {
   "name": "mininote-md",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "backend/src/server.js",
   "scripts": {
     "start": "node backend/src/server.js",
-    "dev": "nodemon backend/src/server.js"
+    "dev": "nodemon backend/src/server.js",
+    "release": "npm version patch -m \"Release %s\"",
+    "postversion": "git push && git push --tags"
   },
   "dependencies": {
     "express": "^4.17.1",
