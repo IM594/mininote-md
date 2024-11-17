@@ -15,6 +15,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      SKIP_RELEASE: ${{ env.SKIP_RELEASE }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -32,51 +34,31 @@ jobs:
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
           
-      - name: Bump version
-        id: bump_version
-        run: |
-          CURRENT_VERSION=${LATEST_TAG#v}
-          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-          PATCH=$((VERSION_PARTS[2] + 1))
-          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          
-      - name: Update package.json
-        run: |
+          # 从package.json中获取当前版本
           if [ -f "package.json" ]; then
-            # 尝试使用npm version命令
-            if ! npm version $NEW_VERSION --no-git-tag-version; then
-              # 如果npm version失败，则使用sed直接修改文件
-              sed -i 's/"version": ".*"/"version": "'$NEW_VERSION'"/' package.json
-            fi
+            CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")
+            echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
           else
-            # 如果package.json不存在，创建一个基础版本
-            echo '{
-              "name": "mininote-md",
-              "version": "'$NEW_VERSION'",
-              "private": true
-            }' > package.json
+            echo "CURRENT_VERSION=0.0.0" >> $GITHUB_ENV
           fi
-          
-      - name: Commit and tag
+
+      - name: Check version
+        id: check_version
         run: |
-          git add package.json
-          git commit -m "Release v$NEW_VERSION"
-          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-          
-      - name: Push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
-        run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-          git push origin HEAD:main
-          git push --tags
-          
+          LATEST_VERSION=${LATEST_TAG#v}
+          if [ "$LATEST_VERSION" = "$CURRENT_VERSION" ]; then
+            echo "SKIP_RELEASE=true" >> $GITHUB_ENV
+            echo "Versions are identical ($LATEST_VERSION), skipping release process"
+          else
+            echo "SKIP_RELEASE=false" >> $GITHUB_ENV
+          fi
+
       - name: Create Release
+        if: env.SKIP_RELEASE != 'true'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.NEW_VERSION }}
-          name: Release v${{ env.NEW_VERSION }}
+          tag_name: v${{ env.CURRENT_VERSION }}
+          name: Release v${{ env.CURRENT_VERSION }}
           draft: false
           prerelease: false
         env:
@@ -103,7 +85,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: release
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main' && 
+      needs.release.outputs.SKIP_RELEASE != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
