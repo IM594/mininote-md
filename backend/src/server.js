@@ -4,7 +4,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-const PORT = process.env.PORT || 3457;
+const PORT = process.env.PORT || 3456;
 const NOTES_DIR = path.join(__dirname, '../../data/notes');
 const PASSWORD = process.env.PASSWORD || 'test0000';
 const SETTINGS_DIR = path.join(__dirname, '../../data/settings');

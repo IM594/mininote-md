@@ -1,7 +1,5 @@
 # 依赖目录
 node_modules/
-vendor/
-backend/node_modules/
 
 # 数据目录
 data/
