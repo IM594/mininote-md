@@ -54,7 +54,7 @@
 ### 环境变量
 - `PORT`: 服务端口号，默认 3456
 - `PASSWORD`: 登录密码，默认 test0000
-- `JWT_SECRET`: 用于生成 JWT 密钥，建议在生产环境中设置
+- `SALT`: 用于生成 JWT 密钥的盐值，建议在生产环境中设置
 - `NODE_ENV`: 环境模式，production/development
 
 ## 主要功能

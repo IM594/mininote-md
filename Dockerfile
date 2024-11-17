@@ -20,8 +20,7 @@ RUN mkdir -p data/notes data/settings data/history && \
 
 # 设置环境变量
 ENV PORT=3456 \
-    NODE_ENV=production \
-    PASSWORD=test0000
+    NODE_ENV=production
 
 # 暴露端口
 EXPOSE 3456

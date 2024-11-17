@@ -379,7 +379,7 @@ app.get('/api/notes', authMiddleware, async (req, res) => {
                 })
         );
         
-        // 按修改时间降序��序
+        // 按修改时间降序
         notes.sort((a, b) => b.lastModified - a.lastModified);
         res.json(notes);
     } catch (error) {
