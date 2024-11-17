@@ -43,7 +43,20 @@ jobs:
           
       - name: Update package.json
         run: |
-          npm version $NEW_VERSION --no-git-tag-version
+          if [ -f "package.json" ]; then
+            # 尝试使用npm version命令
+            if ! npm version $NEW_VERSION --no-git-tag-version; then
+              # 如果npm version失败，则使用sed直接修改文件
+              sed -i 's/"version": ".*"/"version": "'$NEW_VERSION'"/' package.json
+            fi
+          else
+            # 如果package.json不存在，创建一个基础版本
+            echo '{
+              "name": "mininote-md",
+              "version": "'$NEW_VERSION'",
+              "private": true
+            }' > package.json
+          fi
           
       - name: Commit and tag
         run: |
