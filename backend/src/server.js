@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -9,6 +10,8 @@ const NOTES_DIR = path.join(__dirname, '../../data/notes');
 const PASSWORD = process.env.PASSWORD || 'test0000';
 const SETTINGS_DIR = path.join(__dirname, '../../data/settings');
 const HISTORY_DIR = path.join(__dirname, '../../data/history');
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-at-least-32-chars-long';
+const JWT_EXPIRES = '30d'; // token 有效期30天
 
 // 添加缓存控制中间件
 const cacheControl = (duration) => {
@@ -68,11 +71,20 @@ app.use('/api', (req, res, next) => {
 
 // 认证中间件
 const authMiddleware = (req, res, next) => {
-    const isAuthed = req.cookies.authed === 'true';
-    if (isAuthed) {
+    const token = req.cookies.token;
+    
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    try {
+        // 验证 token
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
         next();
-    } else {
-        res.status(401).json({ error: 'Unauthorized' });
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        res.status(401).json({ error: 'Invalid token' });
     }
 };
 
@@ -80,14 +92,22 @@ const authMiddleware = (req, res, next) => {
 app.post('/api/auth', (req, res) => {
     const { password } = req.body;
     if (password === PASSWORD) {
-        // 设置 cookie 过期时间为 30 天
-        res.cookie('authed', 'true', {
+        // 生成 JWT token
+        const token = jwt.sign(
+            { authorized: true },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES }
+        );
+        
+        // 设置 httpOnly cookie
+        res.cookie('token', token, {
             httpOnly: true,
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30天的毫秒数
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30天
             path: '/',
-            secure: process.env.NODE_ENV === 'production', // 生产环境使用 HTTPS
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict'
         });
+        
         res.json({ success: true });
     } else {
         res.status(401).json({ error: 'Invalid password' });
@@ -168,14 +188,31 @@ app.get('/:path', (req, res) => {
     res.sendFile(path.join(__dirname, '../../frontend/index.html'));
 });
 
-// 添加认证检查接口
+// 认证检查接口
 app.get('/api/check-auth', (req, res) => {
-    const isAuthed = req.cookies.authed === 'true';
-    if (isAuthed) {
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ error: 'Unauthorized' });
+    const token = req.cookies.token;
+    
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
     }
+    
+    try {
+        jwt.verify(token, JWT_SECRET);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
+// 添加登出接口
+app.post('/api/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+    });
+    res.json({ success: true });
 });
 
 // 添加获取设置的接口
