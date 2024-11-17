@@ -1,6 +1,6 @@
 # Mini Note MD
 
-一个极简的 Markdown 随手记应用。
+一个极简的 Markdown 随手记应用，支持 Docker 一键部署。
 
 ## 快速开始
 
@@ -9,15 +9,47 @@
 - npm
 
 ### 部署步骤
-```bash
-git clone https://github.com/IM594/mininote-md.git
-cd mininote-md
-npm install  # 安装依赖
-npm start    # 启动服务
-npm run dev  # 开发模式启动（支持热重载）
-```
 
-访问 `http://localhost:3456` 即可使用，默认密码为 `test0000`。
+#### 方式一：本地部署
+1. 克隆仓库
+   ```bash
+   git clone https://github.com/IM594/mininote-md.git
+   cd mininote-md
+   npm install  # 安装依赖
+   npm start    # 启动服务
+   npm run dev  # 开发模式启动（支持热重载）
+   ```
+
+2. 访问 `http://localhost:3456` 即可使用，默认密码为 `test0000`。
+
+#### 方式二：Docker 部署
+1. 直接运行
+   ```bash
+   docker run -d \
+     -p 3456:3456 \
+     -v /path/to/data:/app/data \
+     -e PASSWORD=your-secure-password \
+     -e JWT_SECRET=your-jwt-secret \
+     im594/mininote-md:latest
+   ```
+
+2. 使用 docker-compose
+   ```yaml
+   version: '3'
+   services:
+     note-app:
+       image: im594/mininote-md:latest
+       ports:
+         - "3456:3456"
+       volumes:
+         - ./data:/app/data
+       environment:
+         - PASSWORD=your-secure-password
+         - JWT_SECRET=your-jwt-secret
+       restart: unless-stopped
+   ```
+   
+   运行：`docker-compose up -d`
 
 ### 环境变量
 - `PORT`: 服务端口号，默认 3456
@@ -78,7 +110,7 @@ npm run dev  # 开发模式启动（支持热重载）
 
 ## 待办事项
 
-- [ ] Docker 部署支持
+- [x] Docker 部署支持
 - [ ] 国际化支持
 
 ## 技术栈
@@ -86,3 +118,4 @@ npm run dev  # 开发模式启动（支持热重载）
 - 前端: 原生 JavaScript + Marked.js + Highlight.js
 - 后端: Node.js + Express + JWT
 - 数据存储: 文件系统
+- 容器化: Docker

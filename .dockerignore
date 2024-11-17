@@ -2,4 +2,7 @@ node_modules
 npm-debug.log
 data
 .git
-.gitignore 
+.gitignore
+.env
+*.md
+.DS_Store
