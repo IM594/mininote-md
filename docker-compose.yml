@@ -1,11 +1,14 @@
 version: '3'
 services:
   note-app:
-    build: .
+    image: im594/mininote-md:latest
     ports:
-      - "3000:3000"
+      - "3456:3456"
     volumes:
       - ./data:/app/data
     environment:
-      - PASSWORD=your-password-here
+      - PORT=3456
+      - PASSWORD=your-secure-password
+      - SALT=your-secure-salt-here
+      - NODE_ENV=production
     restart: unless-stopped 
