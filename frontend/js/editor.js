@@ -357,31 +357,39 @@ function initCodeHighlight() {
     });
 }
 
-// 添加加载设置函数
+// 修改加载设置函数
 async function loadSettings() {
     try {
-        // 先尝试使用本地存储的设置
+        // 优先使用本地存储的设置
         const localSettings = localStorage.getItem('editor_settings');
         if (localSettings) {
             try {
                 const settings = JSON.parse(localSettings);
                 currentSettings = settings;
                 applySettings(settings);
+                
+                // 将本地设置同步到服务器
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: localSettings
+                });
+                
+                return; // 如果成功使用了本地设置，就不需要继续了
             } catch (e) {
                 console.error('解析本地设置失败:', e);
             }
         }
 
-        // 从服务器获取最新设置
+        // 只有在没有本地设置时，才从服务器获取
         const response = await fetch('/api/settings');
         if (response.ok) {
             const serverSettings = await response.json();
-            // 只有当服务器设置与本地设置不同时才更新
-            if (JSON.stringify(serverSettings) !== localSettings) {
-                currentSettings = serverSettings;
-                localStorage.setItem('editor_settings', JSON.stringify(serverSettings));
-                applySettings(serverSettings);
-            }
+            currentSettings = serverSettings;
+            localStorage.setItem('editor_settings', JSON.stringify(serverSettings));
+            applySettings(serverSettings);
         }
     } catch (error) {
         console.error('加载设置失败:', error);
@@ -460,10 +468,7 @@ async function saveSettings() {
     if (!currentSettings) return;
     
     try {
-        // 先更新本地存储
-        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
-        
-        // 再保存到服务器
+        // 先保存到服务器
         await fetch('/api/settings', {
             method: 'POST',
             headers: {
@@ -471,8 +476,13 @@ async function saveSettings() {
             },
             body: JSON.stringify(currentSettings),
         });
+        
+        // 成功后再保存到本地
+        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
     } catch (error) {
         console.error('保存设置失败:', error);
+        // 即使服务器保存失败，也尝试保存到本地
+        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
     }
 }
 
@@ -684,7 +694,7 @@ async function deleteAllHistory() {
             document.querySelector('.history-modal').remove();
             showNotification('已删除所有历史记录');
         } else {
-            throw new Error('删除失���');
+            throw new Error('删除失');
         }
     } catch (error) {
         console.error('删除所有历史记录失败:', error);
@@ -922,7 +932,7 @@ function updateFontSizePreview(target, value) {
     }, 500)();
 }
 
-// 添加 resizer 初始化函数
+// 添加 resizer 初始化函��
 function initResizer() {
     const resizer = document.getElementById('resizer');
     const editorSection = document.querySelector('.editor-section');
