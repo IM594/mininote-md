@@ -1,0 +1,1296 @@
+:root {
+    --bg-color: #ffffff;
+    --outer-bg-color: #f5f5f5;
+    --text-color: #333333;
+    --border-color: #e0e0e0;
+    --menu-bg: rgba(255, 255, 255, 0.95);
+    --primary-color: #4a90e2;
+    --hover-color: #357abd;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --transition: 0.2s ease;
+    --resizer-width: 20px;
+    --resizer-width-half: 10px;
+    --container-padding: 20px 20px;
+    --content-height: calc(100vh - 40px);
+    --editor-min-width: 20%;
+    --editor-max-width: 80%;
+    --snap-threshold: 2%;
+    --menu-button-size: 36px;
+    --menu-panel-width: 300px;
+    --menu-panel-top: 70px;
+    --menu-panel-right: 30px;
+    --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, border 0.3s ease;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --outer-bg-color: #141414;
+    --text-color: #e0e0e0;
+    --border-color: #404040;
+    --menu-bg: rgba(40, 40, 40, 0.95);
+    --primary-color: #64b5f6;
+    --hover-color: #42a5f5;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: var(--theme-transition);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 20px;
+    background: var(--bg-color);
+    transition: var(--transition);
+}
+
+.auth-container input {
+    width: 280px;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: var(--transition);
+}
+
+.auth-container input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.auth-container button {
+    width: 280px;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--primary-color);
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin: 0;
+}
+
+.auth-container button:hover {
+    background: var(--hover-color);
+    transform: translateY(-1px);
+}
+
+.editor-container {
+    display: flex;
+    height: 100vh;
+    background: var(--outer-bg-color);
+    transition: var(--transition);
+    overflow: hidden;
+    padding: var(--container-padding);
+    gap: 0;
+    box-sizing: border-box;
+}
+
+#editor, #preview {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    padding: 32px;
+    border: none;
+    font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-color);
+    background: var(--bg-color);
+    resize: none;
+    transition: none;
+    overflow-y: auto;
+    box-sizing: border-box;
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-lg);
+    mask-image: linear-gradient(to bottom, transparent 0px, black 4px, black calc(100% - 4px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 4px, black calc(100% - 4px), transparent 100%);
+}
+
+#preview table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+#preview img {
+    max-width: 100%;
+    height: auto;
+}
+
+#preview pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+#preview pre code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#preview :not(pre) > code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.menu-button {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    width: var(--menu-button-size);
+    height: var(--menu-button-size);
+    border-radius: 8px;
+    background: var(--menu-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.menu-button .dot {
+    width: 4px;
+    height: 4px;
+    background: var(--text-color);
+    border-radius: 50%;
+    position: relative;
+}
+
+.menu-button .dot::before,
+.menu-button .dot::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--text-color);
+    border-radius: 50%;
+    left: 0;
+}
+
+.menu-button .dot::before {
+    top: -8px;
+}
+
+.menu-button .dot::after {
+    top: 8px;
+}
+
+.menu-panel {
+    position: fixed;
+    top: calc(var(--menu-panel-top) + 15px);
+    right: 40px;
+    background: var(--bg-color);
+    border-radius: 12px;
+    width: var(--menu-panel-width);
+    box-shadow: 0 4px 20px var(--shadow-color);
+    z-index: 999;
+    border: 1px solid var(--border-color);
+}
+
+.menu-panel.hidden {
+    transform: scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.menu-section {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.menu-section:last-child {
+    border-bottom: none;
+}
+
+.menu-section h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color);
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.resizer {
+    width: var(--resizer-width);
+    flex: none;
+    background: transparent;
+    position: relative;
+    cursor: col-resize;
+    z-index: 10;
+    display: none;
+}
+
+.resizer::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    height: 100%;
+    background: var(--border-color);
+    opacity: 0.5;
+    transition: all 0.2s ease;
+}
+
+.resizer:hover::before,
+.resizer.active::before {
+    background: var(--primary-color);
+    opacity: 1;
+    width: 2px;
+    box-shadow: 0 0 4px var(--primary-color);
+}
+
+.editor-container:not(.preview-only):not(.edit-only) .resizer {
+    display: block;
+}
+
+.editor-container.preview-only .editor-section,
+.editor-container.preview-only .resizer {
+    display: none;
+}
+
+.editor-container.preview-only .preview-section {
+    flex: 1;
+    width: 100% !important;
+}
+
+.editor-container.edit-only .preview-section,
+.editor-container.edit-only .resizer {
+    display: none;
+}
+
+.editor-container.edit-only .editor-section {
+    flex: 1;
+    width: 100% !important;
+}
+
+.editor-container:not(.preview-only):not(.edit-only) .editor-section,
+.editor-container:not(.preview-only):not(.edit-only) .preview-section {
+    flex: none;
+    width: calc(50% - var(--resizer-width-half));
+}
+
+.editor-container.resizing {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
+.editor-container.resizing .editor-section,
+.editor-container.resizing .preview-section {
+    pointer-events: none;
+    transition: none;
+}
+
+button {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-height: 32px;
+    margin: 0;
+}
+
+button:last-child {
+    margin-bottom: 0;
+}
+
+button:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+input[type="number"],
+input[type="date"],
+select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 13px;
+}
+
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    background: var(--menu-bg);
+    color: var(--text-color);
+    font-size: 14px;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    transform: translateY(0);
+    transition: var(--transition);
+    z-index: 1000;
+}
+
+.notification.success {
+    background: #4caf50;
+    color: white;
+}
+
+.notification.error {
+    background: #f44336;
+    color: white;
+}
+
+.notification.fade-out {
+    transform: translateY(20px);
+    opacity: 0;
+}
+
+#editor::-webkit-scrollbar,
+#preview::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#editor::-webkit-scrollbar-track,
+#preview::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+
+#editor::-webkit-scrollbar-thumb,
+#preview::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+    border: 2px solid var(--bg-color);
+    min-height: 40px;
+}
+
+#editor::-webkit-scrollbar-thumb:hover,
+#preview::-webkit-scrollbar-thumb:hover {
+    background: var(--text-color);
+}
+
+/* 添加历史记录模态框样式 */
+.history-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+}
+
+.history-modal-content {
+    background: var(--bg-color);
+    border-radius: var(--radius-lg);
+    width: 80%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px var(--shadow-color);
+}
+
+.history-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.history-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    max-height: calc(80vh - 80px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.history-item {
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-color);
+}
+
+.history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 36px;
+    padding: 8px 15px;
+    line-height: 36px;
+}
+
+.history-time {
+    font-size: 14px;
+    color: var(--text-color);
+    opacity: 0.7;
+    line-height: 36px;
+}
+
+.history-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: 20px;
+    align-items: center;
+}
+
+.history-actions button {
+    flex: 1;
+    padding: 8px 16px;
+    font-size: 14px;
+    min-width: 80px;
+    margin: 0;
+}
+
+/* 添加删除按钮样式 */
+.history-actions .delete-btn {
+    background-color: transparent;
+    border-color: #f44336;
+    color: #f44336;
+}
+
+.history-actions .delete-btn:hover {
+    background-color: #f44336;
+    color: white;
+}
+
+/* 添加源码显示样式 */
+.source-content {
+    margin: 0;
+    padding: 15px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text-color);
+}
+
+/* 添加关闭按钮样式 */
+.history-modal-header button {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.history-modal-header button:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+/* 添加历史记录预览相关样式 */
+.preview-placeholder {
+    color: var(--text-color);
+    opacity: 0.5;
+    text-align: center;
+    padding: 20px;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: #f44336;
+}
+
+/* 添加按钮禁用状态样式 */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+button:disabled:hover {
+    background: var(--bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.history-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.history-modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+/* 修改历史记录模态框头部样式 */
+.history-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* 添加删除全部按钮样式 */
+.delete-all-btn {
+    background-color: transparent;
+    border-color: #f44336;
+    color: #f44336;
+}
+
+.delete-all-btn:hover {
+    background-color: #f44336;
+    color: white;
+}
+
+/* 修改笔记列表态框样式 */
+.notes-modal-content {
+    width: 90%;
+    max-width: 1000px;
+}
+
+.notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.note-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-color);
+    transition: border-color var(--transition);
+}
+
+.note-item:hover {
+    border-color: var(--primary-color);
+}
+
+.note-info {
+    flex: 1;
+}
+
+.note-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.note-meta {
+    font-size: 12px;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.note-size {
+    margin-left: 10px;
+}
+
+.note-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.search-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 14px;
+    width: 200px;
+    margin-right: 10px;
+}
+
+.search-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+/* 导航按钮组样式 */
+.date-navigation {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.date-navigation button {
+    margin: 0;
+}
+
+.date-navigation input[type="date"] {
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+/* 视图按钮组样式 */
+.view-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.view-buttons button {
+    margin: 0;
+}
+
+/* 修改控制组样式 */
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
+}
+
+.control-group label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+/* 修改值显示的样式，确保数值和单位连在一起 */
+.control-group label span {
+    color: var(--text-color);
+    opacity: 0.8;
+    display: flex;
+    gap: 0;  /* 移间隙 */
+}
+
+/* 调整滑块的上边距，让它和标有一定间隔 */
+.control-group input[type="range"] {
+    margin-top: 8px;
+}
+
+/* 主题选择器样式 */
+.theme-section {
+    margin-top: 12px;
+}
+
+.theme-section select {
+    width: 100%;
+}
+
+/* 滑块样式 */
+input[type="range"] {
+    width: 100%;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* 加历史记录详情相关样式 */
+.history-detail-tabs {
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.history-detail-tabs .tab {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.history-detail-tabs .tab.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    height: 100%; /* 确保内容区域填满父容器 */
+}
+
+.tab-content.active {
+    display: block;
+    height: 100%; /* 确保内容区域满父容器 */
+}
+
+.history-detail-content {
+    height: calc(60vh - 120px); /* 减去标题栏和标签栏的高度 */
+    overflow: hidden; /* 移除外层的滚动条 */
+}
+
+/* 预览和源码容区域单独滚动 */
+.tab-content.preview,
+.tab-content.source {
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 10px; /* 为滚动条预留空间 */
+}
+
+/* 调整源码显示区域样式 */
+.source-content {
+    margin: 0;
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* 调整历史记录列表样式 */
+.history-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-color);
+}
+
+.history-time {
+    font-size: 14px;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.history-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.history-actions button {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 13px;
+    margin: 0;
+}
+
+/* 修改历史记录模态框按钮样式 */
+.history-modal button {
+    height: 36px;
+    line-height: 34px;
+    padding: 0 16px;
+    font-size: 14px;
+    white-space: nowrap;
+    min-width: 100px; /* 统最小宽度 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* 调整历史记录详情模态框的按钮样式 */
+.history-modal-header .header-actions button {
+    min-width: 100px; /* 给顶部按钮更大最小宽度 */
+}
+
+/* 调整历史记录列表中的按钮样式 */
+.history-actions button {
+    min-width: 80px; /* 设置最小宽度 */
+    padding: 6px 16px; /* 增加水平内边距 */
+}
+
+/* 确保删除全部按钮有足够宽度 */
+.delete-all-btn {
+    min-width: 100px !important;
+}
+
+/* 修改代码块样式 */
+pre {
+    position: relative;  /* 为复制按钮定位做准备 */
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin: 16px 0;
+}
+
+[data-theme="dark"] pre {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+    line-height: inherit;
+}
+
+.copy-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--text-color);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    z-index: 1;
+    width: auto;
+    min-width: auto;
+    margin: 0;
+    height: auto;
+    line-height: normal;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-height: 24px;
+}
+
+pre:hover .copy-button {
+    opacity: 1;
+}
+
+.copy-button:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* 移除之前添加的额外内边距 */
+pre {
+    padding-top: 16px;  /* 恢复正常内边距 */
+}
+
+pre code {
+    padding-top: 0;
+}
+
+/* 复制按钮在深色模式下的样式 */
+[data-theme="dark"] .copy-button {
+    background: var(--bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .copy-button:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* 优化超链接样式 */
+#preview a {
+    color: var(--primary-color);
+    text-decoration: none;
+    position: relative;
+    transition: all 0.2s ease;
+    padding: 0 2px;
+}
+
+/* 链接下划线效果 */
+#preview a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background-color: var(--primary-color);
+    opacity: 0.3;
+    transition: all 0.2s ease;
+}
+
+/* 悬停效果 */
+#preview a:hover {
+    color: var(--hover-color);
+}
+
+#preview a:hover::after {
+    opacity: 0.8;
+    height: 2px;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] #preview a {
+    color: #7eb6ff;  /* 更亮的蓝色 */
+}
+
+[data-theme="dark"] #preview a::after {
+    background-color: #7eb6ff;
+}
+
+/* 特殊上下文中的链接样式 */
+#preview blockquote a::after {
+    opacity: 0.2;
+}
+
+#preview blockquote a:hover::after {
+    opacity: 0.6;
+}
+
+#preview code a {
+    padding: 0;
+}
+
+#preview code a::after {
+    display: none;
+}
+
+#preview table a {
+    padding: 0 2px;
+}
+
+#preview table a::after {
+    bottom: 2px;
+}
+
+/* 移除 hljs 的背景样式 */
+.hljs {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* 确保代码块内的所有 hljs 相关元素都没有背景 */
+pre code.hljs,
+.hljs *,
+.hljs .hljs-section,
+.hljs .hljs-title,
+.hljs .hljs-name,
+.hljs .hljs-selector-id,
+.hljs .hljs-selector-class,
+.hljs .hljs-type,
+.hljs .hljs-string,
+.hljs .hljs-number,
+.hljs .hljs-built_in,
+.hljs .hljs-builtin-name,
+.hljs .hljs-literal,
+.hljs .hljs-params,
+.hljs .hljs-symbol,
+.hljs .hljs-bullet,
+.hljs .hljs-addition,
+.hljs .hljs-variable,
+.hljs .hljs-template-tag,
+.hljs .hljs-template-variable,
+.hljs .hljs-link,
+.hljs .hljs-comment,
+.hljs .hljs-quote,
+.hljs .hljs-deletion,
+.hljs .hljs-meta,
+.hljs .hljs-keyword,
+.hljs .hljs-selector-tag,
+.hljs .hljs-doctag,
+.hljs .hljs-regexp,
+.hljs .hljs-attr {
+    background: transparent !important;
+}
+
+[data-theme="dark"] pre {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* 修改输入框样式 */
+input, textarea, select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;  /* 移除默认的聚焦轮廓 */
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: var(--transition);
+}
+
+/* 输入框聚焦样式 */
+input:focus, textarea:focus, select:focus {
+    border-color: var(--primary-color);
+    box-shadow: none;  /* 移除聚焦时的阴影 */
+    outline: none;  /* 再次确保没有轮廓 */
+}
+
+/* 特别处理编辑器 */
+#editor {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    border: none;
+}
+
+#editor:focus {
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+/* 确保深色模式下的一致性 */
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+    border-color: var(--primary-color);
+    box-shadow: none;
+    outline: none;
+}
+
+
+.menu-panel button:last-child {
+    margin-bottom: 0;
+}
+
+/* 移除历史记录操作按钮的下边距 */
+.history-actions button {
+    margin-bottom: 0;
+}
+
+/* 移除历史记录标签按钮的下边距 */
+.history-detail-tabs button {
+    margin-bottom: 0;
+}
+
+/* 添加预览内容样式 */
+.preview-content {
+    padding: 32px !important;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* 调整笔记列表中的按钮布局 */
+.note-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.note-actions button {
+    min-width: 60px;
+    height: 32px;
+}
+
+/* 确保预览模态框内容区域有合适的最大高度 */
+.history-modal-content .preview-content {
+    max-height: calc(80vh - 80px);
+    overflow-y: auto;
+}
+
+/* 预览内容中的代码块样式 */
+.preview-content pre {
+    margin: 1em 0;
+}
+
+/* 预览内容的滚动条样式 */
+.preview-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.preview-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.preview-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+/* 修改预览区域的第一个元素样式 */
+#preview > *:first-child {
+    margin-top: 0 !important;
+}
+
+/* 确保所有可能的第一个元素都没有上边距 */
+#preview > h1:first-child,
+#preview > h2:first-child,
+#preview > h3:first-child,
+#preview > h4:first-child,
+#preview > h5:first-child,
+#preview > h6:first-child,
+#preview > p:first-child,
+#preview > ul:first-child,
+#preview > ol:first-child,
+#preview > blockquote:first-child,
+#preview > pre:first-child,
+#preview > table:first-child {
+    margin-top: 0 !important;
+}
+
+/* 预览内容样式 */
+.preview-content > *:first-child {
+    margin-top: 0 !important;
+}
+
+/* 为所有可能变化的元素添加过渡效果 */
+body,
+.editor-container,
+#editor,
+#preview,
+.menu-panel,
+.menu-button,
+pre,
+code,
+button,
+input,
+select,
+textarea,
+.history-modal-content,
+.history-item,
+.copy-button,
+.notification,
+.source-content,
+blockquote,
+table,
+th,
+td,
+.editor-section,
+.preview-section {
+    transition: var(--theme-transition);
+}
+
+/* 确保滚动条的过渡效果 */
+#editor::-webkit-scrollbar-thumb,
+#preview::-webkit-scrollbar-thumb,
+.preview-content::-webkit-scrollbar-thumb {
+    transition: var(--theme-transition);
+}
+
+/* 保持一些不需要过渡的属性 */
+.resizer::before {
+    transition: opacity 0.2s ease, width 0.2s ease, background-color 0.3s ease;
+}
+
+/* 保持原有的动画效果 */
+.notification.fade-out {
+    transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 移除所有按钮的margin */
+button {
+    margin: 0;
+}
+
+/* 移除view-buttons中按钮的margin */
+.view-buttons button {
+    margin: 0;
+}
+
+/* 移除history-actions中按钮的margin */
+.history-actions button {
+    margin: 0;
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.menu-panel button:last-child {
+    margin-bottom: 0;
+}
+
+/* 确保control-group中的按钮也没有margin */
+.control-group button {
+    margin: 0;
+}
+  

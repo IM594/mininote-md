@@ -1,0 +1,9 @@
+{
+  "viewMode": "both",
+  "theme": "light",
+  "editorWidth": "calc(50% - 10px)",
+  "previewWidth": "calc(50% - 10px)",
+  "editorLineHeight": 1.5,
+  "previewLineHeight": 1.5,
+  "editorFontSize": 14
+}

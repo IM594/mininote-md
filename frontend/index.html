@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Note Md</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/go.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/typescript.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github.min.css" id="light-code-theme">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github-dark.min.css" id="dark-code-theme" disabled>
+</head>
+<body>
+    <div id="auth-container" class="auth-container">
+        <input type="password" id="password" placeholder="请输入密码">
+        <button onclick="authenticate()">确认</button>
+    </div>
+    
+    <div id="editor-container" class="editor-container hidden">
+        <div id="menu-button" class="menu-button">
+            <div class="dot"></div>
+        </div>
+        
+        <div id="menu-panel" class="menu-panel hidden">
+            <div class="menu-section">
+                <h3>笔记</h3>
+                <button onclick="showNotesList()">笔记列表</button>
+                <button onclick="showHistory()">历史记录</button>
+            </div>
+            <div class="menu-section">
+                <h3>视图</h3>
+                <div class="view-buttons">
+                    <button onclick="toggleView('edit')">仅编辑</button>
+                    <button onclick="toggleView('preview')">仅预览</button>
+                    <button onclick="toggleView('both')">分屏显示</button>
+                </div>
+            </div>
+            <div class="menu-section">
+                <h3>外观</h3>
+                <button onclick="toggleDarkMode()">切换深色模式</button>
+            </div>
+            <div class="menu-section">
+                <h3>编辑器设置</h3>
+                <div class="control-group">
+                    <label>编辑器字体大小 <span><span id="editor-font-size-value">14</span>px</span></label>
+                    <input type="range" id="editor-font-size" min="12" max="32" value="14" 
+                           oninput="updateFontSizePreview('editor', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>预览字体大小 <span><span id="preview-font-size-value">14</span>px</span></label>
+                    <input type="range" id="preview-font-size" min="12" max="32" value="14"
+                           oninput="updateFontSizePreview('preview', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>编辑器行高: <span id="editor-line-height-value">1.5</span></label>
+                    <input type="range" id="editor-line-height" min="1" max="3" step="0.1" value="1.5" 
+                           oninput="updateLineHeightPreview('editor', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>预览行高: <span id="preview-line-height-value">1.5</span></label>
+                    <input type="range" id="preview-line-height" min="1" max="3" step="0.1" value="1.5"
+                           oninput="updateLineHeightPreview('preview', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>默认代码语言</label>
+                    <select id="default-code-language" onchange="updateDefaultCodeLanguage(this.value)">
+                        <option value="">无</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="go">Go</option>
+                        <option value="cpp">C++</option>
+                        <option value="css">CSS</option>
+                        <option value="html">HTML</option>
+                        <option value="json">JSON</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="sql">SQL</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="yaml">YAML</option>
+                        <option value="bash">Bash</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-section">
+            <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+        <div class="resizer" id="resizer"></div>
+        <div class="preview-section">
+            <div id="preview"></div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+    <script src="/js/editor.js"></script>
+</body>
+</html> 

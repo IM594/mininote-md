@@ -1,0 +1,11 @@
+version: '3'
+services:
+  note-app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PASSWORD=your-password-here
+    restart: unless-stopped 
