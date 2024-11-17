@@ -1,6 +1,6 @@
 {
   "name": "mininote-md",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "backend/src/server.js",
   "scripts": {
     "start": "node backend/src/server.js",
