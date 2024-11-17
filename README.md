@@ -1,39 +1,91 @@
 # Mini Note MD
 
-一个极简的 Markdown 随手记应用，支持 Docker 一键部署。
+[English](README.md) | [中文](README.zh-CN.md)
 
-## 快速开始
+A minimalist Markdown note-taking app with real-time preview, version history, and dark mode support.
 
-### 环境要求
+## Key Features
+
+### 📝 Editor
+- Real-time preview
+- Split/Edit/Preview modes
+- Customizable font size & line height
+- Smart Tab indentation
+- Auto-indent for lists
+- Keyboard shortcuts
+- Auto-save (every 5 minutes)
+- Manual save (Ctrl/Cmd + S)
+
+### 🎨 Markdown Support
+- Support Markdown syntax
+- Code syntax highlighting
+- Default code language setting
+- One-click code copying
+- Multiple programming languages
+- Table support
+- Image support
+- Math formula support
+
+### 📅 Note Management
+- Date-based organization
+- Note listing & search
+- Note preview/edit/delete
+- Quick navigation to previous/next day
+
+### ⏱️ Version History
+- Automatic version saving
+- View/Preview versions
+- Version restore
+- Delete single version
+- Clear all versions
+- Auto-cleanup (30-day retention)
+
+### 🎯 UI & Themes
+- Auto dark/light theme
+- Responsive design
+- Mobile-friendly
+- Adjustable split view
+- Custom font sizes
+- Custom line heights
+
+### 🔐 Security
+- Password protection
+- JWT authentication
+- HttpOnly Cookie
+- 30-day token expiry
+- Secure logout
+
+## Quick Start
+
+### Requirements
 - Node.js 18.0+
-- npm
+- npm or Docker
 
-### 部署步骤
-
-#### 方式一：本地部署
-1. 克隆仓库
+### Local Setup
+1. Clone and run
    ```bash
    git clone https://github.com/IM594/mininote-md.git
    cd mininote-md
-   npm install  # 安装依赖
-   npm start    # 启动服务
-   npm run dev  # 开发模式启动（支持热重载）
+   npm install
+   npm start    # production mode
+   npm run dev  # development mode (hot reload)
    ```
 
-2. 访问 `http://localhost:3456` 即可使用，默认密码为 `test0000`。
+2. Visit `http://localhost:3456`, default password: `test0000`
 
-#### 方式二：Docker 部署
-1. 直接运行
+### Docker Setup
+1. Direct run
    ```bash
    docker run -d \
      -p 3456:3456 \
      -v /path/to/data:/app/data \
      -e PASSWORD=your-secure-password \
-     -e JWT_SECRET=your-jwt-secret \
+     -e SALT=your-secure-salt \
+     -e NODE_ENV=production \
      im594/mininote-md:latest
    ```
 
-2. 使用 docker-compose
+2. Using docker-compose
    ```yaml
    version: '3'
    services:
@@ -45,77 +97,65 @@
          - ./data:/app/data
        environment:
          - PASSWORD=your-secure-password
-         - JWT_SECRET=your-jwt-secret
+         - SALT=your-secure-salt
+         - NODE_ENV=production
        restart: unless-stopped
    ```
    
-   运行：`docker-compose up -d`
+   Run: `docker-compose up -d`
 
-### 环境变量
-- `PORT`: 服务端口号，默认 3456
-- `PASSWORD`: 登录密码，默认 test0000
-- `SALT`: 用于生成 JWT 密钥的盐值，建议在生产环境中设置
-- `NODE_ENV`: 环境模式，production/development
+### Environment Variables
+- `PORT`: Server port (default: 3456)
+- `PASSWORD`: Login password (default: test0000)
+- `SALT`: JWT secret salt
+- `NODE_ENV`: production/development
 
-## 主要功能
+## Usage
 
-### 🔐 安全认证
-- JWT token 认证
-- HttpOnly Cookie 存储
-- 30天自动过期
-- 安全登出机制
+### Shortcuts
+- `Ctrl/Cmd + S`: Manual save
+- `Tab`: Increase indent
+- `Shift + Tab`: Decrease indent
+- List auto-indent: Tab in list items to increase level
+- Empty list item: Enter to remove list marker
 
-### 📝 编辑器
-- 实时预览 Markdown 内容
-- 支持分屏/仅编辑/仅预览三种模式
-- 自定义字体大小和行高
-- Tab 键智能缩进
-- 多级列表自动缩进
+### Note Management
+- Click top-right menu for features
+- View note list and history
+- Search notes by title
+- Preview, edit or delete notes
 
-### 🎨 代码
-- 代码语法高亮
-- 设置默认代码语言
-- 代码块一键复制
-- 支持多种编程语言
+### Editor Settings
+- Adjust editor/preview font size
+- Adjust editor/preview line height
+- Set default code language
+- Adjust split view ratio (drag divider)
 
-### 📅 笔记管理
-- 基于日期组织笔记
-- 笔记列表查看
-- 笔记预览/删除
-- 标题搜索
+### Data Storage
+- Notes: `data/notes` directory
+- History: `data/history` directory
+- Settings: `data/settings` directory
 
-### ⏱️ 历史记录
-- 自动保存历史版本
-- 查看/预览历史版本
-- 恢复/删除历史版本
+## Roadmap
 
-### 🎯 其他
-- 深色/浅色主题
-- 密码保护
-- 自动保存
-- 快捷键支持
-- 移动端适配
+- [x] Docker support
+- [x] Dark mode
+- [x] Version history
+- [x] Note search
+- [ ] Internationalization
+- [ ] Note export
 
-## 安全说明
+## Tech Stack
 
-- 使用 JWT 进行身份验证
-- Token 存储在 HttpOnly Cookie 中
-- 所有 API 请求都需要有效 token
-- 支持安全的登出机制
-- 建议在生产环境中：
-  1. 使用强密钥(JWT_SECRET)
-  2. 启用 HTTPS
-  3. 定期轮换密钥
-  4. 设置合适的密码
+- Frontend: Vanilla JavaScript + Marked.js + Highlight.js
+- Backend: Node.js + Express + JWT
+- Storage: File system
+- Container: Docker
 
-## 待办事项
+## Contributing
 
-- [x] Docker 部署支持
-- [ ] 国际化支持
+Issues and Pull Requests are welcome.
 
-## 技术栈
+## License
 
-- 前端: 原生 JavaScript + Marked.js + Highlight.js
-- 后端: Node.js + Express + JWT
-- 数据存储: 文件系统
-- 容器化: Docker
+MIT License
