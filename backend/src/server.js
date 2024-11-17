@@ -3,7 +3,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -13,20 +12,6 @@ const SETTINGS_DIR = path.join(__dirname, '../../data/settings');
 const HISTORY_DIR = path.join(__dirname, '../../data/history');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-at-least-32-chars-long';
 const JWT_EXPIRES = '30d'; // token 有效期30天
-
-// 生成随机 salt
-function generateSalt() {
-    return crypto.randomBytes(16).toString('hex');
-}
-
-// 使用 salt 哈希密码
-function hashPassword(password, salt) {
-    return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-}
-
-// 初始化时生成 salt 和密码哈希
-const SALT = process.env.SALT || generateSalt();
-const PASSWORD_HASH = hashPassword(process.env.PASSWORD || 'test0000', SALT);
 
 // 添加缓存控制中间件
 const cacheControl = (duration) => {
@@ -106,18 +91,18 @@ const authMiddleware = (req, res, next) => {
 // 认证接口
 app.post('/api/auth', (req, res) => {
     const { password } = req.body;
-    const inputHash = hashPassword(password, SALT);
-    
-    if (inputHash === PASSWORD_HASH) {
+    if (password === PASSWORD) {
+        // 生成 JWT token
         const token = jwt.sign(
             { authorized: true },
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES }
         );
         
+        // 设置 httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
-            maxAge: 30 * 24 * 60 * 60 * 1000,
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30天
             path: '/',
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict'
