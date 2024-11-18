@@ -743,7 +743,7 @@ button:disabled:hover {
     opacity: 0.8;
 }
 
-/* 修改值显示的样式，���保数值和单位连在一起 */
+/* 修改值显示的样式，保数值和单位连在一起 */
 .control-group label span {
     color: var(--text-color);
     opacity: 0.8;
@@ -1327,5 +1327,52 @@ button {
 .loading-container.fade-out {
     opacity: 0;
     pointer-events: none;
+}
+
+/* 在文件末尾添加引用样式 */
+
+/* 引用块样式 */
+#preview blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--primary-color);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: var(--radius-sm);
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+/* 深色模式下的引用块样式 */
+[data-theme="dark"] #preview blockquote {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* 引用块内的段落样式 */
+#preview blockquote p {
+    margin: 0.5em 0;
+}
+
+/* 嵌套引用块样式 */
+#preview blockquote blockquote {
+    margin: 0.5em 0;
+    border-left-color: var(--border-color);
+}
+
+/* 引用块内的列表样式 */
+#preview blockquote ul,
+#preview blockquote ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+/* 引用块内的代码样式 */
+#preview blockquote code {
+    background: rgba(0, 0, 0, 0.04);
+    padding: 0.2em 0.4em;
+    border-radius: var(--radius-sm);
+}
+
+[data-theme="dark"] #preview blockquote code {
+    background: rgba(255, 255, 255, 0.04);
 }
   
