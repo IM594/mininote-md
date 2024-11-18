@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-一个极简的 Markdown 随手记应用，支持实时预览、历史记录、深色模式等功能。
+一个极简的 Markdown 随手记应用，支持实时预览、实时协作、历史记录、深色模式等功能。
 
 ## 主要功能
 
@@ -12,25 +12,26 @@
 - 自定义字体大小和行高
 - Tab 键智能缩进
 - 列表自动缩进
-- 快捷键支持
+- 快捷键支持 (Ctrl/Cmd + S)
 - 自动保存（每5分钟）
-- 手动保存（Ctrl/Cmd + S）
+
+### 🤝 实时协作
+- 多设备同步
+- 实时内容更新
+- 保持光标位置
+- 基于 WebSocket 通信
 
 ### 🎨 Markdown 支持
-- 支持 Markdown 语法
+- 基础 Markdown 语法
 - 代码语法高亮
 - 默认代码语言设置
 - 代码块一键复制
-- 多种编程语言支持
 - 表格支持
-- 图片支持
-- 数学公式支持
 
 ### 📅 笔记管理
 - 基于日期组织笔记
 - 笔记列表与搜索
 - 笔记预览/编辑/删除
-- 前一天/后一天快速导航
 
 ### ⏱️ 历史记录
 - 自动保存版本
@@ -42,8 +43,6 @@
 
 ### 🎯 界面与主题
 - 自动深色/浅色主题
-- 响应式设计
-- 移动端适配
 - 可调节分屏比例
 - 自定义字体大小
 - 自定义行高
@@ -173,10 +172,11 @@
 
 ## 技术栈
 
-- 前端：原生 JavaScript + Marked.js + Highlight.js
-- 后端：Node.js + Express + JWT
+- 前端：原生 JavaScript + Marked.js + Highlight.js + WebSocket
+- 后端：Node.js + Express + JWT + ws
 - 存储：文件系统
 - 容器：Docker
+- 代理：OpenResty/Nginx
 
 ## 贡献
 
@@ -185,3 +185,74 @@
 ## 许可
 
 MIT License 
+
+## 部署说明
+
+### Nginx/OpenResty 配置
+对于 HTTPS 和 WebSocket 支持，添加以下配置：
+
+```nginx
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name your-domain.com;
+    
+    # SSL 配置
+    ssl_certificate /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+    ssl_protocols TLSv1.3 TLSv1.2 TLSv1.1 TLSv1;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # HTTP 重定向到 HTTPS
+    if ($scheme = http) {
+        return 301 https://$host$request_uri;
+    }
+    
+    # 安全头部
+    add_header Strict-Transport-Security "max-age=31536000";
+    
+    # 代理配置
+    location / {
+        proxy_pass http://127.0.0.1:3456;
+        
+        # WebSocket 支持
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # SSL 相关
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-SSL-Protocol $ssl_protocol;
+        
+        # 请求头
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # 超时设置
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_connect_timeout 300s;
+        
+        # WebSocket 特定配置
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # 错误处理
+        proxy_intercept_errors on;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+    }
+    
+    # 日志
+    access_log /path/to/access.log;
+    error_log /path/to/error.log;
+}
+```
+
+注意事项：
+1. 将 `your-domain.com` 替换为你的实际域名
+2. 更新 SSL 证书路径
+3. 调整日志文件路径
+4. 修改配置后重启 Nginx/OpenResty

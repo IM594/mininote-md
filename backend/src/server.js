@@ -4,6 +4,8 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const WebSocket = require('ws');
+const http = require('http');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -428,8 +430,83 @@ app.use((req, res, next) => {
     next();
 });
 
+// 创建 HTTP 服务器
+const server = http.createServer(app);
+
+// 创建 WebSocket 服务器
+const wss = new WebSocket.Server({ server });
+
+// 存储所有连接的客户端
+const clients = new Map();
+
+// WebSocket 连接处理
+wss.on('connection', (ws, req) => {
+    // 获取当前编辑的笔记路径
+    const notePath = new URL(req.url, 'http://localhost').searchParams.get('path');
+    
+    if (!notePath) {
+        ws.close();
+        return;
+    }
+    
+    // 将客户端添加到对应笔记的连接组
+    if (!clients.has(notePath)) {
+        clients.set(notePath, new Set());
+    }
+    clients.get(notePath).add(ws);
+    
+    // 处理客户端消息
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            
+            // 添加日志
+            console.log(`[WebSocket] 收到消息: ${data.type} for note: ${notePath}`);
+            
+            // 验证消息格式
+            if (!data.type || (data.type === 'content_update' && typeof data.content !== 'string')) {
+                throw new Error('Invalid message format');
+            }
+            
+            // 广播更改给同一笔记的其他客户端
+            const noteClients = clients.get(notePath);
+            if (noteClients) {
+                let broadcastCount = 0;
+                noteClients.forEach(client => {
+                    if (client !== ws && client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({
+                            type: data.type,
+                            content: data.content,
+                            timestamp: Date.now()
+                        }));
+                        broadcastCount++;
+                    }
+                });
+                console.log(`[WebSocket] 已广播到 ${broadcastCount} 个客户端`);
+            }
+        } catch (error) {
+            console.error('[WebSocket] 处理消息失败:', error);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: '消息处理失败'
+            }));
+        }
+    });
+    
+    // 处理连接关闭
+    ws.on('close', () => {
+        const noteClients = clients.get(notePath);
+        if (noteClients) {
+            noteClients.delete(ws);
+            if (noteClients.size === 0) {
+                clients.delete(notePath);
+            }
+        }
+    });
+});
+
 // 修改监听配置
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Local access: http://localhost:${PORT}`);
 }); 
