@@ -451,7 +451,7 @@ function toggleView(mode) {
     } else if (mode === 'edit') {
         container.classList.add('edit-only');
     } else {
-        // both 模式下初始化 resizer
+        // both 模式���初始化 resizer
         initResizer();
     }
     
@@ -1425,15 +1425,36 @@ async function previewNote(path) {
     }
 }
 
-// 修改 logout 函数，添加清除本地设置
+// 修改 logout 函数
 async function logout() {
     try {
-        await fetch('/api/logout', { method: 'POST' });
-        // 清除所有笔记缓存
-        clearAllNoteCache();
-        // 清除编辑器设置
-        localStorage.removeItem('editor_settings');
-        window.location.reload();
+        // 1. 立即显示登录界面
+        handleAuthFailure(true);
+        
+        // 2. 在后台执行清理工作
+        Promise.all([
+            // 发送登出请求
+            fetch('/api/logout', { method: 'POST' }),
+            
+            // 清除笔记缓存的操作
+            new Promise(resolve => {
+                setTimeout(() => {
+                    clearAllNoteCache();
+                    resolve();
+                }, 0)
+            }),
+            
+            // 清除编辑器设置
+            new Promise(resolve => {
+                setTimeout(() => {
+                    localStorage.removeItem('editor_settings');
+                    resolve();
+                }, 0)
+            })
+        ]).catch(error => {
+            console.error('后台清理操作失败:', error);
+        });
+        
     } catch (error) {
         console.error('登出失败:', error);
     }

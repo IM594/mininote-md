@@ -258,11 +258,24 @@ async function initializeEditor() {
 }
 
 // 抽取认证失败的处理逻辑
-function handleAuthFailure() {
+function handleAuthFailure(immediate = false) {
     console.log('[Loading] 认证无效，显示登录界面', getElapsedTime());
-    document.getElementById('auth-container').classList.remove('hidden');
-    document.getElementById('editor-container').classList.add('hidden');
-    document.getElementById('loading-container').classList.add('hidden');
+    
+    if (immediate) {
+        // 立即显示登录界面
+        document.getElementById('auth-container').classList.remove('hidden');
+        document.getElementById('editor-container').classList.add('hidden');
+        document.getElementById('loading-container').classList.add('hidden');
+    } else {
+        // 平滑过渡
+        document.getElementById('editor-container').classList.add('fade-out');
+        setTimeout(() => {
+            document.getElementById('auth-container').classList.remove('hidden');
+            document.getElementById('editor-container').classList.add('hidden');
+            document.getElementById('loading-container').classList.add('hidden');
+        }, 300);
+    }
+    
     console.log('[Loading] 登录界面准备完成', getElapsedTime());
     loadingStartTime = null;
 }
