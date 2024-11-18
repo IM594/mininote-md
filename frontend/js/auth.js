@@ -206,7 +206,7 @@ async function initializeEditor() {
         if (!loadingFinished) {
             showLoading();
         }
-    }, 100);
+    }, 500);
     
     try {
         // 等待编辑器初始化完成
