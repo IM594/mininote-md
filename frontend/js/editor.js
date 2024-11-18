@@ -1624,7 +1624,7 @@ function addWebSocketStatusIndicator() {
         indicator.style.cssText = `
             position: fixed;
             bottom: 10px;
-            left: 10px;
+            right: 10px;
             width: 8px;
             height: 8px;
             border-radius: 50%;
