@@ -85,31 +85,84 @@ function clearAuthCache() {
     console.log('[Auth] 清除认证缓存');
 }
 
-// 页面加载时检查认证状态
+// 修改 RequestManager，添加请求队列管理
+const RequestManager = {
+    controllers: new Set(),
+    activeRequests: new Map(), // 添加请求队列
+    
+    // 创建新的 AbortController 并跟踪它
+    createController() {
+        const controller = new AbortController();
+        this.controllers.add(controller);
+        return controller;
+    },
+    
+    // 移除已完成的 controller
+    removeController(controller) {
+        this.controllers.delete(controller);
+    },
+    
+    // 取消所有正在进行的请求
+    abortAll() {
+        for (const controller of this.controllers) {
+            controller.abort();
+        }
+        this.controllers.clear();
+        this.activeRequests.clear();
+    },
+    
+    // 取消特定URL的旧请求
+    abortPreviousRequest(url) {
+        const previousController = this.activeRequests.get(url);
+        if (previousController) {
+            previousController.abort();
+            this.removeController(previousController);
+            this.activeRequests.delete(url);
+        }
+    },
+    
+    // 包装 fetch 请求，添加超时和自动清理
+    async fetch(url, options = {}) {
+        // 如果有相同URL的请求正在进行，取消它
+        this.abortPreviousRequest(url);
+        
+        const controller = this.createController();
+        this.activeRequests.set(url, controller);
+        
+        const timeoutId = setTimeout(() => controller.abort(), options.timeout || 3000);
+        
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            this.removeController(controller);
+            this.activeRequests.delete(url);
+            
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            this.removeController(controller);
+            this.activeRequests.delete(url);
+            throw error;
+        }
+    }
+};
+
+// 在页面卸载时取消所有请求
+window.addEventListener('beforeunload', () => {
+    RequestManager.abortAll();
+});
+
+// 修改 checkAuth 函数，避免重复请求
 async function checkAuth() {
     try {
         console.log('[Page] DOM内容加载完成', `(${Math.round(performance.now() - pageStartTime)}ms)`);
         
         loadingStartTime = Date.now();
         console.log('[Loading] 开始检查认证状态 (0ms)');
-
-        // 先从本地获取设置并应用主题
-        console.log('[Loading] 开始读取本地设置', getElapsedTime());
-        const localSettings = localStorage.getItem('editor_settings');
-        if (localSettings) {
-            try {
-                const settings = JSON.parse(localSettings);
-                console.log('[Loading] 解析本地设置成功', getElapsedTime());
-                if (settings.theme) {
-                    document.documentElement.setAttribute('data-theme', settings.theme);
-                    console.log('[Loading] 应用主题设置完成', getElapsedTime());
-                }
-            } catch (e) {
-                console.error('[Loading] 解析本地设置失败:', e, getElapsedTime());
-            }
-        } else {
-            console.log('[Loading] 没有找到本地设置', getElapsedTime());
-        }
 
         // 检查认证缓存
         const cachedAuth = checkAuthCache();
@@ -119,8 +172,17 @@ async function checkAuth() {
                 // 先用缓存快速渲染界面
                 await initializeEditor();
                 
-                // 在后台验证 token
-                validateTokenInBackground();
+                // 在后台验证 token，使用单独的请求
+                setTimeout(() => {
+                    validateTokenInBackground().catch(error => {
+                        if (error.name !== 'AbortError') {
+                            console.error('[Auth] Token验证失败:', error);
+                            clearAuthCache();
+                            window.location.reload();
+                        }
+                    });
+                }, 0);
+                
                 return;
             } else {
                 handleAuthFailure();
@@ -130,16 +192,36 @@ async function checkAuth() {
 
         // 如果没有缓存，发送认证请求
         console.log('[Loading] 开始发送认证检查请求', getElapsedTime());
-        const response = await fetch('/api/check-auth');
-        const data = await response.json();
-        console.log('[Loading] 认证检查响应完成', getElapsedTime());
+        
+        try {
+            const response = await RequestManager.fetch('/api/check-auth', {
+                timeout: 3000
+            });
+            
+            if (!response.ok) {
+                throw new Error('认证检查请求失败');
+            }
+            
+            const data = await response.json();
+            console.log('[Loading] 认证检查响应完成', getElapsedTime());
 
-        if (response.ok && data.success) {
-            updateAuthCache(true);
-            await initializeEditor();
-        } else {
-            updateAuthCache(false);
-            handleAuthFailure();
+            if (data.success) {
+                updateAuthCache(true);
+                await initializeEditor();
+            } else {
+                updateAuthCache(false);
+                handleAuthFailure();
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('[Auth] 认证检查超时，尝试使用缓存');
+                const fallbackCache = checkAuthCache();
+                if (fallbackCache) {
+                    await initializeEditor();
+                    return;
+                }
+            }
+            throw error;
         }
     } catch (error) {
         console.error('[Loading] 认证检查失败:', error, getElapsedTime());
@@ -148,29 +230,37 @@ async function checkAuth() {
     }
 }
 
-// 添加后台验证 token 的函数
+// 修改后台验证 token 的函数
 async function validateTokenInBackground() {
     try {
         console.log('[Auth] 开始后台验证 token');
-        const response = await fetch('/api/check-auth');
+        
+        const response = await RequestManager.fetch('/api/check-auth', {
+            timeout: 3000
+        });
+        
+        // 确保响应正常
+        if (!response.ok) {
+            throw new Error(`Token验证请求失败: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if (!response.ok || !data.success) {
-            console.log('[Auth] 后台验证失败，token 已失效');
-            clearAuthCache();
-            // 平滑切换到登录界面
-            document.getElementById('editor-container').classList.add('fade-out');
-            setTimeout(() => {
-                document.getElementById('editor-container').classList.add('hidden');
-                document.getElementById('auth-container').classList.remove('hidden');
-            }, 300);
-        } else {
-            console.log('[Auth] 后台验证成功，token 有效');
-            // 成功验证后刷新缓存时间
-            refreshAuthCache();
+        if (!data.success) {
+            throw new Error('Token验证失败');
         }
+        
+        console.log('[Auth] 后台验证成功，token 有效');
+        // 成功验证后刷新缓存时间
+        refreshAuthCache();
+        
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('[Auth] Token验证超时或被取消，继续使用缓存');
+            return;
+        }
         console.error('[Auth] 后台验证出错:', error);
+        throw error;
     }
 }
 
@@ -299,7 +389,6 @@ async function handleAuth(event) {
         
         loadingStartTime = Date.now();
         loadingFinished = false;
-        console.log('[Auth] 开始登录流程 (0ms)');
         
         loadingTimer = setTimeout(() => {
             if (!loadingFinished) {
@@ -307,7 +396,6 @@ async function handleAuth(event) {
             }
         }, 50);
         
-        console.log('[Auth] 开始发送登录请求', getElapsedTime());
         const response = await fetch('/api/auth', {
             method: 'POST',
             headers: {
@@ -315,7 +403,6 @@ async function handleAuth(event) {
             },
             body: JSON.stringify({ password }),
         });
-        console.log('[Auth] 登录请求响应完成', getElapsedTime());
 
         const data = await response.json();
         if (response.ok && data.success) {
@@ -328,24 +415,25 @@ async function handleAuth(event) {
             }
             
             updateAuthCache(true);
-            console.log('[Auth] 登录成功，开始准备编辑器', getElapsedTime());
             
             document.getElementById('auth-container').classList.add('hidden');
             document.getElementById('editor-container').classList.remove('hidden');
             document.getElementById('password').value = '';
             
             const editorStartTime = Date.now();
-            console.log('[Auth] 开始初始化编辑器', getElapsedTime());
             await initEditor();
-            console.log('[Auth] 编辑器初始化完成', getElapsedTime());
-            console.log('[Editor] 编辑器初始化耗时:', Date.now() - editorStartTime, 'ms');
             
             hideLoading();
         } else {
-            throw new Error(data.error || '密码错误');
+            // 密码错误时只显示错误UI,不打印错误
+            inputGroup.classList.add('error');
+            document.getElementById('password').focus();
         }
     } catch (error) {
-        console.error('[Auth] 登录失败:', error);
+        // 只在非401错误时打印到控制台
+        if (!error.message.includes('Invalid password')) {
+            console.error('[Auth] 登录失败:', error);
+        }
         inputGroup.classList.add('error');
         document.getElementById('password').focus();
     } finally {
@@ -392,13 +480,14 @@ async function logout() {
     }
 }
 
-// 添加全局错误处理，处理 401 错误
+// 修改全局错误处理,不打印401错误
 window.addEventListener('unhandledrejection', event => {
+    // 只处理401错误,不打印到控制台
     if (event.reason instanceof Response && event.reason.status === 401) {
-        // token 失效，重新加载页面
+        event.preventDefault(); // 阻止错误打印
         window.location.reload();
     }
 });
 
-// 页面加载时执行认证检查
+// 页面加载时执行认检查
 document.addEventListener('DOMContentLoaded', checkAuth); 
