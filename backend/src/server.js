@@ -14,8 +14,8 @@ const HISTORY_DIR = path.join(__dirname, '../../data/history');
 
 // 使用 SALT 生成 JWT_SECRET
 const SALT = process.env.SALT || 'your-salt-here';
-const JWT_SECRET = crypto.createHash('sha256')
-                        .update(SALT + Date.now().toString())
+const JWT_SECRET = process.env.JWT_SECRET || crypto.createHash('sha256')
+                        .update(SALT)
                         .digest('hex');
 
 // 为了安全起见,在启动时打印一个模糊的密钥提示
