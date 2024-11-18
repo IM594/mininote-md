@@ -460,9 +460,18 @@ wss.on('connection', (ws, req) => {
         try {
             const data = JSON.parse(message);
             
+            // 添加日志
+            console.log(`[WebSocket] 收到消息: ${data.type} for note: ${notePath}`);
+            
+            // 验证消息格式
+            if (!data.type || (data.type === 'content_update' && typeof data.content !== 'string')) {
+                throw new Error('Invalid message format');
+            }
+            
             // 广播更改给同一笔记的其他客户端
             const noteClients = clients.get(notePath);
             if (noteClients) {
+                let broadcastCount = 0;
                 noteClients.forEach(client => {
                     if (client !== ws && client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({
@@ -470,11 +479,17 @@ wss.on('connection', (ws, req) => {
                             content: data.content,
                             timestamp: Date.now()
                         }));
+                        broadcastCount++;
                     }
                 });
+                console.log(`[WebSocket] 已广播到 ${broadcastCount} 个客户端`);
             }
         } catch (error) {
-            console.error('处理 WebSocket 消息失败:', error);
+            console.error('[WebSocket] 处理消息失败:', error);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: '消息处理失败'
+            }));
         }
     });
     
