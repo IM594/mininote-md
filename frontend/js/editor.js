@@ -5,6 +5,10 @@ let autoSaveInterval = null;
 let justEnteredFromList = false;
 let editorInitStartTime = null;
 
+// 添加一个保存设置的队列控制
+// let settingsSavePromise = Promise.resolve();
+// let pendingSettingsUpdate = null;
+
 // 添加 URL 处理函数
 function handleUrl() {
     const path = window.location.pathname.slice(1);
@@ -408,7 +412,7 @@ function toggleView(mode) {
         currentSettings = {};
     }
     currentSettings.viewMode = mode;
-    saveSettings();
+    saveSettings(true);
 }
 
 // 修改 saveNote 函数
@@ -461,7 +465,7 @@ const saveNote = debounce(async (content, isManual = false, createHistory = fals
                 content: previousContent,
                 timestamp: Date.now()
             }));
-            console.log('[Editor] 笔记本地缓存已恢复');
+            console.log('[Editor] 笔记本地缓存已复');
         } catch (e) {
             console.error('恢复笔记本地缓存失败:', e);
         }
@@ -556,7 +560,7 @@ function applySettings(settings) {
     // 用主题
     document.documentElement.setAttribute('data-theme', settings.theme || 'light');
     
-    // 应用字体大小并更新显示值
+    // 应用字体大小并更新示值
     if (settings.editorFontSize) {
         document.getElementById('editor').style.fontSize = `${settings.editorFontSize}px`;
         document.getElementById('editor-font-size').value = settings.editorFontSize;
@@ -613,19 +617,17 @@ async function updateFontSize(target, size) {
     }
     
     currentSettings[`${target}FontSize`] = parseInt(size);
-    await saveSettings();
+    await saveSettings(true);
 }
 
-// 修改保存设置函数
-async function saveSettings() {
+// 修改保存设置函数，只在非防抖的直接调用时才显示错误
+async function saveSettings(silent = false) {
     if (!currentSettings) return;
     
     try {
-        // 确保 currentSettings 是一个有效的对象
-        if (typeof currentSettings !== 'object') {
-            throw new Error('Invalid settings format');
-        }
-        
+        // 先保存到本地
+        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+
         // 发送请求到服务器
         const response = await fetch('/api/settings', {
             method: 'POST',
@@ -634,24 +636,18 @@ async function saveSettings() {
             },
             body: JSON.stringify(currentSettings),
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.details || error.error || '保存设置失败');
         }
-        
-        // 成功后保存到本地
-        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
-        
     } catch (error) {
-        console.error('保存设置失败:', error);
-        showNotification('保存设置失败: ' + error.message, true);
-        
-        // 即使服务器保存失败，也尝试保存到本地
-        try {
-            localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
-        } catch (localError) {
-            console.error('本地保存设置失败:', localError);
+        // 只在非静默模式下显示错误
+        if (!silent) {
+            console.error('保存设置失败:', error);
+            if (!error.message.includes('Failed to fetch')) {
+                showNotification('保存设置失败: ' + error.message, true);
+            }
         }
     }
 }
@@ -666,7 +662,7 @@ async function updateLineHeight(target, value) {
     }
     
     currentSettings[`${target}LineHeight`] = parseFloat(value);
-    await saveSettings();
+    await saveSettings(true);
 }
 
 // 添加自动保存相关函数
@@ -1071,14 +1067,8 @@ function updateLineHeightPreview(target, value) {
     // 更新实际行高
     element.style.lineHeight = value;
     
-    // 延迟保存设置
-    debounce(() => {
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings[`${target}LineHeight`] = parseFloat(value);
-        saveSettings();
-    }, 500)();
+    // 使用防抖函数保存设置
+    debouncedUpdateLineHeight(target, value);
 }
 
 // 添加字体大小实时预览函数
@@ -1092,17 +1082,11 @@ function updateFontSizePreview(target, value) {
     // 更新实际字体大小
     element.style.fontSize = `${value}px`;
     
-    // 延迟保存设置
-    debounce(() => {
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings[`${target}FontSize`] = parseInt(value);
-        saveSettings();
-    }, 500)();
+    // 使用防抖函数保存设置
+    debouncedUpdateFontSize(target, value);
 }
 
-// 添加 resizer 初始化函
+// 修改 resizer 相关代码
 function initResizer() {
     const resizer = document.getElementById('resizer');
     const editorSection = document.querySelector('.editor-section');
@@ -1120,6 +1104,13 @@ function initResizer() {
         container.classList.add('resizing');
         resizer.classList.add('active');
     }
+    
+    const debouncedSaveResizerSettings = debounce(async () => {
+        if (!currentSettings) {
+            currentSettings = {};
+        }
+        await saveSettings(true); // 静默模式
+    }, 1000);
     
     function handleResizing(e) {
         if (!isResizing) return;
@@ -1152,12 +1143,15 @@ function initResizer() {
         editorSection.style.width = `calc(${editorPercent}% - ${resizerWidthHalf}px)`;
         previewSection.style.width = `calc(${100 - editorPercent}% - ${resizerWidthHalf}px)`;
         
-        // 保存设置
+        // 更新设置但不保存
         if (!currentSettings) {
             currentSettings = {};
         }
         currentSettings.editorWidth = `${editorPercent}%`;
         currentSettings.previewWidth = `${100 - editorPercent}%`;
+        
+        // 使用防抖保存设置
+        debouncedSaveResizerSettings();
     }
     
     function stopResizing() {
@@ -1167,13 +1161,8 @@ function initResizer() {
         container.classList.remove('resizing');
         resizer.classList.remove('active');
         
-        // 保存分割线位置到设置
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings.editorWidth = editorSection.style.width;
-        currentSettings.previewWidth = previewSection.style.width;
-        saveSettings();
+        // 最后一次调整时保存设置
+        debouncedSaveResizerSettings();
     }
 }
 
@@ -1323,9 +1312,9 @@ async function updateDefaultCodeLanguage(language) {
         currentSettings = {};
     }
     currentSettings.defaultCodeLanguage = language;
-    await saveSettings();
+    await saveSettings(true);
     
-    // 重新渲染预览以应新的默认语言
+    // 重新渲染预览以应用新的默认语言
     const editor = document.getElementById('editor');
     renderPreview(editor.value);
 }
@@ -1401,3 +1390,35 @@ const updateLocalNoteCache = debounce((content) => {
         console.error('更新笔记本地缓存失败:', e);
     }
 }, 1000);  // 1秒的防抖时间 
+
+// 修改更新字体大小的防抖函数
+const debouncedUpdateFontSize = debounce(async (target, size) => {
+    if (!currentSettings) {
+        currentSettings = {};
+    }
+    currentSettings[`${target}FontSize`] = parseInt(size);
+    await saveSettings(true); // 静默模式
+}, 1000);
+
+// 修改行高预览函数也使用类似的防抖处理
+const debouncedUpdateLineHeight = debounce(async (target, value) => {
+    if (!currentSettings) {
+        currentSettings = {};
+    }
+    currentSettings[`${target}LineHeight`] = parseFloat(value);
+    await saveSettings(true); // 静默模式
+}, 1000);
+
+function updateLineHeightPreview(target, value) {
+    const element = document.getElementById(target);
+    const valueDisplay = document.getElementById(`${target}-line-height-value`);
+    
+    // 更新显示值
+    valueDisplay.textContent = value;
+    
+    // 更新实际行高
+    element.style.lineHeight = value;
+    
+    // 使用防抖函数保存设置
+    debouncedUpdateLineHeight(target, value);
+} 
