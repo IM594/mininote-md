@@ -255,28 +255,7 @@ async function loadNote(path) {
     const editor = document.getElementById('editor');
     
     try {
-        // 先获取本地缓存并立即显示
-        let localContent = null;
-        let localTimestamp = 0;
-        try {
-            const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
-            if (cachedNote) {
-                const cached = JSON.parse(cachedNote);
-                localContent = cached.content;
-                localTimestamp = cached.timestamp;
-                
-                // 立即显示缓存内容
-                editor.value = localContent;
-                lastSavedContent = localContent;
-                renderPreview(localContent);
-                console.log('[Editor] 使用本地缓存显示内容', getEditorElapsedTime());
-            }
-        } catch (e) {
-            console.error('解析笔记缓存失败:', e);
-            localStorage.removeItem(NOTE_CACHE_KEY + path);
-        }
-        
-        // 然后从服务器获取最新内容
+        // 优先从服务器获取内容
         const response = await RequestManager.fetch(`/api/note/${path}`, {
             timeout: 5000
         });
@@ -285,7 +264,7 @@ async function loadNote(path) {
             throw new Error(`Failed to fetch note: ${response.status}`);
         }
         
-        // 获取服务器内容和最后修改时间
+        // 获取服务器内容
         let serverContent = await response.text();
         const serverTimestamp = new Date(response.headers.get('Last-Modified')).getTime() || Date.now();
         
@@ -293,27 +272,21 @@ async function loadNote(path) {
             serverContent = ''; // 确保空笔记也是空字符串而不是 null
         }
         
-        // 比较内容和时间戳
-        if (serverContent !== localContent) {
-            if (serverTimestamp > localTimestamp) {
-                // 服务器版本更新，更新本地内容
-                console.log('[Editor] 服务器版本更新，更新本地内容');
-                editor.value = serverContent;
-                lastSavedContent = serverContent;
-                renderPreview(serverContent);
-                
-                // 更新缓存
-                localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
-                    content: serverContent,
-                    timestamp: serverTimestamp
-                }));
-                updateNoteCacheList(path);
-                
-            } else if (localContent !== null) {
-                // 本地版本更新，提交到服务器
-                console.log('[Editor] 本地版本更新，提交到服务器');
-                await saveNote(localContent, true, true);
-            }
+        // 更新编辑器内容和缓存
+        editor.value = serverContent;
+        lastSavedContent = serverContent;
+        renderPreview(serverContent);
+        
+        // 更新本地缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: serverContent,
+                timestamp: serverTimestamp
+            }));
+            updateNoteCacheList(path);
+            console.log('[Editor] 本地缓存已更新');
+        } catch (e) {
+            console.error('更新本地缓存失败:', e);
         }
         
     } catch (error) {
@@ -322,10 +295,19 @@ async function loadNote(path) {
             throw error;
         }
         
-        // 如果服务器请求失败但有本地缓存，继续使用缓存的内容
-        if (localContent !== null) {
-            showNotification('使用本地缓存的内容，无法连接服务器', true);
-            return;
+        // 服务器请求失败时，尝试使用本地缓存
+        try {
+            const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+            if (cachedNote) {
+                const cached = JSON.parse(cachedNote);
+                editor.value = cached.content;
+                lastSavedContent = cached.content;
+                renderPreview(cached.content);
+                showNotification('使用本地缓存的内容，无法连接服务器', true);
+                return;
+            }
+        } catch (e) {
+            console.error('读取本地缓存失败:', e);
         }
         
         // 如果没有缓存且服务器请求失败，使用空内容
@@ -792,7 +774,7 @@ async function showHistory() {
         const modal = createHistoryModal(histories);
         document.body.appendChild(modal);
     } catch (error) {
-        console.error('获取历史记录失败:', error);
+        console.error('获取历史录失败:', error);
         showNotification('获取历史记录失败', true);
     }
 }
@@ -1128,7 +1110,7 @@ async function navigateToNote(path) {
 
 // 删除笔记
 async function deleteNote(path, button) {
-    if (!confirm('确定要删除这个笔记吗？此操作不可恢复。')) {
+    if (!confirm('确定要删除这个笔记吗？此操作不可恢。')) {
         return;
     }
     
@@ -1345,7 +1327,7 @@ function handleTabKey(e) {
             }
         }
         
-        // 触发 input 事件以更新预览
+        // 触发 input 事件��更新预览
         const inputEvent = new Event('input');
         editor.dispatchEvent(inputEvent);
     }
