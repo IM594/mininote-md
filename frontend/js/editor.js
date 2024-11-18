@@ -3,6 +3,7 @@ let currentPath = '';
 let currentSettings = null;
 let autoSaveInterval = null;
 let justEnteredFromList = false;
+let editorInitStartTime = null;
 
 // 添加 URL 处理函数
 function handleUrl() {
@@ -19,12 +20,41 @@ function handleUrl() {
 
 // 初始化编辑器
 async function initEditor() {
+    editorInitStartTime = Date.now();
+    console.log('[Editor] 开始初始化编辑器 (0ms)');
+    
     handleUrl();
     
-    const editor = document.getElementById('editor');
-    const preview = document.getElementById('preview');
+    // 1. 先初始化基本配置，这些是同步操作，很快
+    initMarkedConfig();
+    initCodeHighlight();
     
-    // 初始化marked配置
+    // 2. 并行加载设置和笔记
+    const loadSettingsPromise = loadSettings();
+    const loadNotePromise = loadNote(currentPath);
+    
+    // 3. 在等待加载时，先初始化事件监听器
+    initCoreEventListeners(document.getElementById('editor'));
+    
+    // 4. 设置视图模式（不依赖设置和笔记内容）
+    if (!currentSettings?.viewMode) {
+        toggleView('both');
+    }
+    
+    // 5. 等待加载完成
+    await Promise.all([loadSettingsPromise, loadNotePromise]);
+    
+    // 6. 延迟初始化非核心功能
+    queueMicrotask(() => {
+        startAutoSave();
+        initNonCoreFeatures();
+    });
+    
+    return Promise.resolve();
+}
+
+// 初始化 marked 配置
+function initMarkedConfig() {
     marked.setOptions({
         highlight: function(code, lang) {
             if (lang && hljs.getLanguage(lang)) {
@@ -43,42 +73,39 @@ async function initEditor() {
         smartypants: false,
         tables: true
     });
-    
-    // 等待加载笔记和设置
-    await Promise.all([
-        loadNote(currentPath),
-        loadSettings()
-    ]);
-    
-    // 如果没有保存的视图模式，默认使用分屏模式
-    if (!currentSettings || !currentSettings.viewMode) {
-        toggleView('both');
-    }
-    
-    // 添加手动保存快捷键
+}
+
+// 初始化核心事件监听器
+function initCoreEventListeners(editor) {
+    // 手动保存快捷键
     editor.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();  // 阻止浏览器默认的保存行为
-            saveNote(editor.value, true, true);  // 手动保存并创建历史记录
-            return false;  // 进一步确保阻止默认行为
+            e.preventDefault();
+            saveNote(editor.value, true, true);
+            return false;
         }
     });
     
-    // 实时预览
+    // 实时预览，延迟缓存和保存
     editor.addEventListener('input', () => {
         const content = editor.value;
+        // 立即更新预览
         renderPreview(content);
+        // 延迟更新本地缓存和保存到服务器
+        updateLocalNoteCache(content);
         saveNote(content, false, false);
     });
+}
+
+// 初始化非核心功能
+function initNonCoreFeatures() {
+    console.log('[Editor] 开始初始化非核心功能', getEditorElapsedTime());
     
     // 初始化菜单
     initMenu();
     
     // 检查并应用深色模式
     checkDarkMode();
-    
-    // 初始化代码高亮
-    initCodeHighlight();
     
     // 监听系统主题变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
@@ -87,109 +114,188 @@ async function initEditor() {
         }
     });
     
-    // 启动自动保存
-    startAutoSave();
-    
     // 添加 Tab 键处理
+    const editor = document.getElementById('editor');
     editor.addEventListener('keydown', handleTabKey);
     
     // 添加回车键处理
     editor.addEventListener('keydown', handleEnterKey);
     
-    // 确保所有初始化都完成
-    return Promise.resolve();
+    console.log('[Editor] 非核心功能初始化完成', getEditorElapsedTime());
+}
+
+// 获取编辑器初始化经过时间
+function getEditorElapsedTime() {
+    if (!editorInitStartTime) return '';
+    const elapsed = Date.now() - editorInitStartTime;
+    return `(${elapsed}ms)`;
 }
 
 // 渲染预览
 function renderPreview(content) {
+    const startTime = performance.now();
     const preview = document.getElementById('preview');
     const scrollTop = preview.scrollTop;
     
-    const fragment = document.createDocumentFragment();
-    const tempDiv = document.createElement('div');
-    
-    // 修改 marked 的配置，添加默认语言支持
-    marked.setOptions({
-        highlight: function(code, language) {
-            // 如果没有指定语言，使用默认语言
-            if (!language && currentSettings && currentSettings.defaultCodeLanguage) {
-                language = currentSettings.defaultCodeLanguage;
-            }
-            
-            // 只在有语言且该语言被支持时才进行高亮
-            if (language && hljs.getLanguage(language)) {
-                try {
-                    return hljs.highlight(code, { language: language }).value;
-                } catch (err) {
-                    console.error('代码高亮错误:', err);
-                }
-            }
-            // 如果没有指定语言或语言不支持，返回转义后的原始代码
-            return escapeHtml(code);
-        }
-    });
-    
-    tempDiv.innerHTML = marked.parse(content);
-    
-    // 处理代码块
-    tempDiv.querySelectorAll('pre code').forEach((block) => {
-        const originalHeight = block.offsetHeight;
-        if (originalHeight) {
-            block.style.minHeight = `${originalHeight}px`;
-        }
-        
-        // 如果代码块没有语言类，添加默认语言
-        if (!block.className && currentSettings && currentSettings.defaultCodeLanguage) {
-            block.className = `language-${currentSettings.defaultCodeLanguage}`;
-        }
-        
-        // 只有当代码块有语言类时才应用高亮
-        if (block.className && block.className.startsWith('language-')) {
-            hljs.highlightElement(block);
-        }
-        
-        // 添加复制按钮
-        const pre = block.parentElement;
-        if (!pre.querySelector('.copy-button')) {
-            const copyButton = document.createElement('button');
-            copyButton.className = 'copy-button';
-            copyButton.innerHTML = '复制';
-            copyButton.addEventListener('click', () => {
-                const code = block.textContent;
-                navigator.clipboard.writeText(code).then(() => {
-                    copyButton.innerHTML = '已复制!';
-                    setTimeout(() => {
-                        copyButton.innerHTML = '复制';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('复制失败:', err);
-                    copyButton.innerHTML = '复制失败';
-                    setTimeout(() => {
-                        copyButton.innerHTML = '复制';
-                    }, 2000);
-                });
-            });
-            pre.appendChild(copyButton);
-        }
-    });
-    
-    while (tempDiv.firstChild) {
-        fragment.appendChild(tempDiv.firstChild);
-    }
-    
-    preview.innerHTML = '';
-    preview.appendChild(fragment);
+    // 先渲染基本内容
+    const htmlContent = marked.parse(content);
+    preview.innerHTML = htmlContent;
     preview.scrollTop = scrollTop;
+    
+    // 延迟处理代码块
+    setTimeout(() => {
+        const codeBlocks = preview.querySelectorAll('pre code');
+        if (codeBlocks.length > 0) {
+            codeBlocks.forEach((block) => {
+                if (block.className && block.className.startsWith('language-')) {
+                    hljs.highlightElement(block);
+                }
+                // 延迟添加复制按钮
+                setTimeout(() => {
+                    addCopyButton(block);
+                }, 0);
+            });
+        }
+    }, 0);
 }
 
-// 加载笔记
+// 抽取复制按钮逻辑
+function addCopyButton(block) {
+    const pre = block.parentElement;
+    if (!pre.querySelector('.copy-button')) {
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '复制';
+        copyButton.addEventListener('click', () => {
+            const code = block.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                copyButton.innerHTML = '已复制!';
+                setTimeout(() => {
+                    copyButton.innerHTML = '复制';
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                copyButton.innerHTML = '复制失败';
+                setTimeout(() => {
+                    copyButton.innerHTML = '复制';
+                }, 2000);
+            });
+        });
+        pre.appendChild(copyButton);
+    }
+}
+
+// 添加笔记缓存管理
+const NOTE_CACHE_KEY = 'note_cache_';
+const NOTE_CACHE_LIST_KEY = 'note_cache_list';
+const MAX_NOTE_CACHE = 3;
+
+// 获取缓存列表
+function getCacheList() {
+    try {
+        const list = localStorage.getItem(NOTE_CACHE_LIST_KEY);
+        return list ? JSON.parse(list) : [];
+    } catch (e) {
+        console.error('读取缓存列表失败:', e);
+        return [];
+    }
+}
+
+// 保存缓存列表
+function saveCacheList(list) {
+    try {
+        localStorage.setItem(NOTE_CACHE_LIST_KEY, JSON.stringify(list));
+    } catch (e) {
+        console.error('保存缓存列表失败:', e);
+    }
+}
+
+// 更新笔记缓存
+function updateNoteCacheList(path) {
+    let cacheList = getCacheList();
+    
+    // 如果已存在，移到最前面
+    cacheList = cacheList.filter(p => p !== path);
+    cacheList.unshift(path);
+    
+    // 如果超过最大数量，删除最旧的缓存
+    if (cacheList.length > MAX_NOTE_CACHE) {
+        const removedPath = cacheList.pop();
+        try {
+            localStorage.removeItem(NOTE_CACHE_KEY + removedPath);
+            console.log(`[Cache] 移除最旧的缓存: ${removedPath}`);
+        } catch (e) {
+            console.error('删除旧缓存失败:', e);
+        }
+    }
+    
+    saveCacheList(cacheList);
+    console.log('[Cache] 当前缓存列表:', cacheList);
+}
+
+// 修改 loadNote 函数
 async function loadNote(path) {
+    console.log('[Editor] 开始加载笔记内容', getEditorElapsedTime());
     const editor = document.getElementById('editor');
+    
+    // 尝试从缓存加载
+    const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+    if (cachedNote) {
+        try {
+            const { content, timestamp } = JSON.parse(cachedNote);
+            console.log('[Editor] 使用缓存的笔记内容', getEditorElapsedTime());
+            editor.value = content;
+            lastSavedContent = content;
+            renderPreview(content);
+            
+            // 更新缓存列表顺序
+            updateNoteCacheList(path);
+            
+            // 在后台更新缓存
+            updateNoteCache(path);
+            return;
+        } catch (e) {
+            console.error('解析笔记缓存失败:', e);
+        }
+    }
+    
+    // 如果没有缓存，从服务器加载
     const response = await fetch(`/api/note/${path}`);
     const note = await response.text();
+    console.log('[Editor] 笔记内容获取完成', getEditorElapsedTime());
+    
+    // 更新缓存
+    try {
+        localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+            content: note,
+            timestamp: Date.now()
+        }));
+        // 更新缓存列表
+        updateNoteCacheList(path);
+    } catch (e) {
+        console.error('保存笔记缓存失败:', e);
+    }
+    
     editor.value = note;
     lastSavedContent = note;
+    console.log('[Editor] 开始首次渲染预览', getEditorElapsedTime());
     renderPreview(note);
+    console.log('[Editor] 首次渲染预览完成', getEditorElapsedTime());
+}
+
+// 添加后台更新笔记缓存的函数
+async function updateNoteCache(path) {
+    try {
+        const response = await fetch(`/api/note/${path}`);
+        const note = await response.text();
+        localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+            content: note,
+            timestamp: Date.now()
+        }));
+        console.log('[Editor] 后台更新记缓存完成');
+    } catch (e) {
+        console.error('后台更新笔记缓存失败:', e);
+    }
 }
 
 // 初始化菜单
@@ -305,12 +411,32 @@ function toggleView(mode) {
     saveSettings();
 }
 
+// 修改 saveNote 函数
 const saveNote = debounce(async (content, isManual = false, createHistory = false) => {
     if (content === lastSavedContent && !isManual) return;
     
+    // 保存修改前的内容，以便失败时恢复
+    const previousContent = lastSavedContent;
+    
     try {
-        console.log('Saving note:', { isManual, createHistory }); // 添加日志
-        await fetch(`/api/note/${currentPath}`, {
+        console.log('Saving note:', { isManual, createHistory });
+        
+        // 先更新本地缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+                content,
+                timestamp: Date.now()
+            }));
+            // 更新缓存列表
+            updateNoteCacheList(currentPath);
+            console.log('[Editor] 笔记本地缓存已更新');
+        } catch (e) {
+            console.error('更新笔记本地缓存失败:', e);
+            throw e;
+        }
+        
+        // 保存到服务器
+        const response = await fetch(`/api/note/${currentPath}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
@@ -318,27 +444,50 @@ const saveNote = debounce(async (content, isManual = false, createHistory = fals
             },
             body: content,
         });
-        lastSavedContent = content;
         
-        if (isManual) {
-            showNotification('已保存');
+        if (response.ok) {
+            lastSavedContent = content;
+            if (isManual) {
+                showNotification('已保存');
+            }
+        } else {
+            throw new Error('Server responded with error');
         }
     } catch (error) {
         console.error('保存失败:', error);
+        // 恢复本地缓存到之前的状态
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+                content: previousContent,
+                timestamp: Date.now()
+            }));
+            console.log('[Editor] 笔记本地缓存已恢复');
+        } catch (e) {
+            console.error('恢复笔记本地缓存失败:', e);
+        }
         showNotification('保存失败', true);
     }
 }, 1000);
 
 function debounce(func, wait) {
     let timeout;
-    return function executedFunction(...args) {
+    
+    function executedFunction(...args) {
         const later = () => {
             clearTimeout(timeout);
             func(...args);
         };
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
+    }
+    
+    // 添加立即执行方法
+    executedFunction.flush = function() {
+        clearTimeout(timeout);
+        func.apply(this, arguments);
     };
+    
+    return executedFunction;
 }
 
 // 简化代码高亮初始化函数
@@ -359,25 +508,28 @@ function initCodeHighlight() {
 
 // 修改加载设置函数
 async function loadSettings() {
+    console.log('[Editor] 开始加载设置', getEditorElapsedTime());
     try {
-        // 优先使用本地存储的设置
         const localSettings = localStorage.getItem('editor_settings');
         if (localSettings) {
             try {
+                console.log('[Editor] 使用本地缓存的设置', getEditorElapsedTime());
                 const settings = JSON.parse(localSettings);
                 currentSettings = settings;
                 applySettings(settings);
                 
-                // 将本地设置同步到服务器
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: localSettings
-                });
+                // 异步同步设置到服务器，不阻塞主流程
+                setTimeout(() => {
+                    fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: localSettings
+                    }).catch(e => console.error('设置同步失败:', e));
+                }, 0);
                 
-                return; // 如果成功使用了本地设置，就不需要继续了
+                return;
             } catch (e) {
                 console.error('解析本地设置失败:', e);
             }
@@ -390,6 +542,7 @@ async function loadSettings() {
             currentSettings = serverSettings;
             localStorage.setItem('editor_settings', JSON.stringify(serverSettings));
             applySettings(serverSettings);
+            console.log('[Editor] 从服务器加载设置完成', getEditorElapsedTime());
         }
     } catch (error) {
         console.error('加载设置失败:', error);
@@ -529,7 +682,7 @@ function startAutoSave() {
     }, 5 * 60 * 1000); // 5分钟
 }
 
-// 添加历史记录相关函
+// 添加历史记录相关
 async function showHistory() {
     try {
         const response = await fetch(`/api/history/${currentPath}`);
@@ -565,7 +718,7 @@ function createHistoryModal(histories) {
             </div>
         </div>
         <div class="history-modal-body">
-            ${histories.length === 0 ? '<p>历史记录</p>' : 
+            ${histories.length === 0 ? '<p>历史录</p>' : 
                 histories.map(history => `
                     <div class="history-item">
                         <div class="history-row">
@@ -610,7 +763,7 @@ async function viewHistoryDetail(timestamp) {
                 <h3>历史记录详情 - ${new Date(parseInt(timestamp)).toLocaleString()}</h3>
                 <div class="header-actions">
                     <button onclick="restoreHistory('${timestamp}')">恢复此版本</button>
-                    <button onclick="this.closest('.history-modal').remove()">关闭</button>
+                    <button onclick="this.closest('.history-modal').remove()">关</button>
                 </div>
             </div>
             <div class="history-modal-body">
@@ -696,7 +849,7 @@ async function deleteHistory(timestamp, button) {
     }
 }
 
-// 添加删除所有历史记录的函数
+// 添加删所有历史记录的函数
 async function deleteAllHistory() {
     if (!confirm('确定要删除所有历史记录吗？此操作不可恢复。')) {
         return;
@@ -773,7 +926,7 @@ function createNotesModal(notes) {
             <h3>笔记列表</h3>
             <div class="header-actions">
                 <input type="text" id="notes-search" placeholder="搜索笔记..." class="search-input">
-                <button onclick="this.closest('.history-modal').remove()">关闭</button>
+                <button onclick="this.closest('.history-modal').remove()">闭</button>
             </div>
         </div>
         <div class="history-modal-body">
@@ -1172,7 +1325,7 @@ async function updateDefaultCodeLanguage(language) {
     currentSettings.defaultCodeLanguage = language;
     await saveSettings();
     
-    // 重新渲染预览以应用新的默认语言
+    // 重新渲染预览以应新的默认语言
     const editor = document.getElementById('editor');
     renderPreview(editor.value);
 }
@@ -1234,4 +1387,17 @@ async function logout() {
     } catch (error) {
         console.error('登出失败:', error);
     }
-} 
+}
+
+// 添加防抖的本地缓存更新
+const updateLocalNoteCache = debounce((content) => {
+    try {
+        localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+            content,
+            timestamp: Date.now()
+        }));
+        console.log('[Editor] 笔记本地缓存已更新');
+    } catch (e) {
+        console.error('更新笔记本地缓存失败:', e);
+    }
+}, 1000);  // 1秒的防抖时间 
