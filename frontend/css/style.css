@@ -19,7 +19,7 @@
     --editor-max-width: 80%;
     --snap-threshold: 2%;
     --menu-button-size: 32px;
-    --menu-panel-width: 40%;
+    --menu-panel-width: 100%;
     --menu-panel-top: 70px;
     --menu-panel-right: 30px;
     --theme-transition: background-color 0.3s ease, color 0.1s ease, border 0.3s ease;
@@ -288,6 +288,7 @@ body {
     background: var(--bg-color);
     border-radius: 12px;
     width: var(--menu-panel-width);
+    max-width: 300px;
     max-height: calc(100vh - var(--menu-panel-top) - 60px);
     box-shadow: 0 4px 20px var(--shadow-color);
     z-index: 999;
