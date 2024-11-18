@@ -129,11 +129,18 @@ app.get('/api/note/:path', authMiddleware, async (req, res) => {
     try {
         const filePath = path.join(NOTES_DIR, `${req.params.path}.md`);
         try {
+            const stats = await fs.stat(filePath);
             const content = await fs.readFile(filePath, 'utf-8');
+            
+            // 添加 Last-Modified 头
+            res.set('Last-Modified', stats.mtime.toUTCString());
             res.send(content);
+            
         } catch (error) {
             if (error.code === 'ENOENT') {
-                res.send(''); // 如果文件不存在，返回空内容
+                // 如果文件不存在，返回空内容和当前时间作为 Last-Modified
+                res.set('Last-Modified', new Date().toUTCString());
+                res.send('');
             } else {
                 throw error;
             }

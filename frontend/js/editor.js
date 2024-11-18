@@ -255,99 +255,80 @@ async function loadNote(path) {
     const editor = document.getElementById('editor');
     
     try {
-        // 尝试从缓存加载
-        const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
-        if (cachedNote) {
-            try {
-                const { content, timestamp } = JSON.parse(cachedNote);
-                // 验证缓存的内容不是错误信息，同时允许空字符串
-                if (content !== null && typeof content === 'string' && !content.includes('"error"')) {
-                    console.log('[Editor] 使用缓存的笔记内容', getEditorElapsedTime());
-                    editor.value = content;
-                    lastSavedContent = content;
-                    renderPreview(content);
-                    
-                    // 更新缓存列表顺序
-                    updateNoteCacheList(path);
-                    
-                    // 在后台异步更新缓存，不等待它完成
-                    setTimeout(() => {
-                        updateNoteCache(path).catch(err => {
-                            console.error('后台更新缓存失败:', err);
-                        });
-                    }, 0);
-                    
-                    return;
-                }
-            } catch (e) {
-                console.error('解析笔记缓存失败:', e);
-                localStorage.removeItem(NOTE_CACHE_KEY + path);
+        // 先获取本地缓存并立即显示
+        let localContent = null;
+        let localTimestamp = 0;
+        try {
+            const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+            if (cachedNote) {
+                const cached = JSON.parse(cachedNote);
+                localContent = cached.content;
+                localTimestamp = cached.timestamp;
+                
+                // 立即显示缓存内容
+                editor.value = localContent;
+                lastSavedContent = localContent;
+                renderPreview(localContent);
+                console.log('[Editor] 使用本地缓存显示内容', getEditorElapsedTime());
             }
+        } catch (e) {
+            console.error('解析笔记缓存失败:', e);
+            localStorage.removeItem(NOTE_CACHE_KEY + path);
         }
         
-        // 如果没有缓存，从服务器加载，添加超时处理
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+        // 然后从服务器获取最新内容
+        const response = await RequestManager.fetch(`/api/note/${path}`, {
+            timeout: 5000
+        });
         
-        try {
-            const response = await RequestManager.fetch(`/api/note/${path}`, {
-                timeout: 5000
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                throw new Error(`Failed to fetch note: ${response.status}`);
-            }
-            
-            // 处理空响应的情况
-            let note = await response.text();
-            if (!note) {
-                note = ''; // 确保空笔记也是空字符串而不是 null
-            }
-            
-            console.log('[Editor] 笔记内容获取完成', getEditorElapsedTime());
-            
-            // 更新编辑器内容
-            editor.value = note;
-            lastSavedContent = note;
-            
-            // 更新缓存
-            try {
+        if (!response.ok) {
+            throw new Error(`Failed to fetch note: ${response.status}`);
+        }
+        
+        // 获取服务器内容和最后修改时间
+        let serverContent = await response.text();
+        const serverTimestamp = new Date(response.headers.get('Last-Modified')).getTime() || Date.now();
+        
+        if (!serverContent) {
+            serverContent = ''; // 确保空笔记也是空字符串而不是 null
+        }
+        
+        // 比较内容和时间戳
+        if (serverContent !== localContent) {
+            if (serverTimestamp > localTimestamp) {
+                // 服务器版本更新，更新本地内容
+                console.log('[Editor] 服务器版本更新，更新本地内容');
+                editor.value = serverContent;
+                lastSavedContent = serverContent;
+                renderPreview(serverContent);
+                
+                // 更新缓存
                 localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
-                    content: note,
-                    timestamp: Date.now()
+                    content: serverContent,
+                    timestamp: serverTimestamp
                 }));
-                // 更新缓存列表
                 updateNoteCacheList(path);
-            } catch (e) {
-                console.error('保存笔记缓存失败:', e);
+                
+            } else if (localContent !== null) {
+                // 本地版本更新，提交到服务器
+                console.log('[Editor] 本地版本更新，提交到服务器');
+                await saveNote(localContent, true, true);
             }
-            
-            console.log('[Editor] 开始首次渲染预览', getEditorElapsedTime());
-            renderPreview(note);
-            console.log('[Editor] 首次渲染预览完成', getEditorElapsedTime());
-            
-        } catch (error) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                console.log('[Editor] 加载笔记超时或被取消');
-                // 使用空字符串作为默认值
-                editor.value = '';
-                lastSavedContent = '';
-                renderPreview('');
-                return;
-            }
-            throw error;
         }
         
     } catch (error) {
         console.error('加载笔记失败:', error);
-        // 如果是认证相关错误，抛出去
         if (error.message.includes('401') || error.message.includes('认证')) {
             throw error;
         }
-        // 出错时设置为空字符串而不是 null
+        
+        // 如果服务器请求失败但有本地缓存，继续使用缓存的内容
+        if (localContent !== null) {
+            showNotification('使用本地缓存的内容，无法连接服务器', true);
+            return;
+        }
+        
+        // 如果没有缓存且服务器请求失败，使用空内容
         editor.value = '';
         lastSavedContent = '';
         renderPreview('');
@@ -526,13 +507,24 @@ function toggleView(mode) {
 const saveNote = debounce(async (content, isManual = false, createHistory = false) => {
     if (content === lastSavedContent && !isManual) return;
     
-    // 保存修改前的内容，以便失败时恢复
-    const previousContent = lastSavedContent;
-    
     try {
         console.log('Saving note:', { isManual, createHistory });
         
-        // 先更新本地缓存
+        // 先保存到服务器
+        const response = await fetch(`/api/note/${currentPath}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain',
+                'X-Create-History': createHistory ? 'true' : 'false'
+            },
+            body: content,
+        });
+        
+        if (!response.ok) {
+            throw new Error('Server responded with error');
+        }
+        
+        // 服务器保存成功后再更新本地缓存
         try {
             localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
                 content,
@@ -543,40 +535,26 @@ const saveNote = debounce(async (content, isManual = false, createHistory = fals
             console.log('[Editor] 笔记本地缓存已更新');
         } catch (e) {
             console.error('更新笔记本地缓存失败:', e);
-            throw e;
         }
         
-        // 保存到服务器
-        const response = await fetch(`/api/note/${currentPath}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-                'X-Create-History': createHistory ? 'true' : 'false'
-            },
-            body: content,
-        });
-        
-        if (response.ok) {
-            lastSavedContent = content;
-            if (isManual) {
-                showNotification('已保存');
-            }
-        } else {
-            throw new Error('Server responded with error');
+        lastSavedContent = content;
+        if (isManual) {
+            showNotification('已保存');
         }
     } catch (error) {
         console.error('保存失败:', error);
-        // 恢复本地缓存到之前的状态
+        showNotification('保存失败', true);
+        
+        // 保存失败时，保留本地缓存以防数据丢失
         try {
             localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
-                content: previousContent,
+                content,
                 timestamp: Date.now()
             }));
-            console.log('[Editor] 笔记本地缓存已复');
+            console.log('[Editor] 保存失败，已更新本地缓存');
         } catch (e) {
-            console.error('恢复笔记本地缓存失败:', e);
+            console.error('更新本地缓存失败:', e);
         }
-        showNotification('保存失败', true);
     }
 }, 1000);
 
