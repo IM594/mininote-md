@@ -595,8 +595,17 @@ function applySettings(settings) {
     if (settings.editorWidth && settings.previewWidth && settings.viewMode === 'both') {
         const editorSection = document.querySelector('.editor-section');
         const previewSection = document.querySelector('.preview-section');
+        const resizerWidthHalf = parseFloat(getComputedStyle(document.documentElement)
+            .getPropertyValue('--resizer-width-half'));
         
-        // 直接使用保存的宽度，不再添加额外的计算
+        // 确保保存的宽度包含了计算值
+        if (!settings.editorWidth.includes('calc')) {
+            settings.editorWidth = `calc(${settings.editorWidth} - ${resizerWidthHalf}px)`;
+        }
+        if (!settings.previewWidth.includes('calc')) {
+            settings.previewWidth = `calc(${settings.previewWidth} - ${resizerWidthHalf}px)`;
+        }
+        
         editorSection.style.width = settings.editorWidth;
         previewSection.style.width = settings.previewWidth;
     }
@@ -1139,16 +1148,19 @@ function initResizer() {
             editorPercent = 50;
         }
         
-        // 设置宽度
-        editorSection.style.width = `calc(${editorPercent}% - ${resizerWidthHalf}px)`;
-        previewSection.style.width = `calc(${100 - editorPercent}% - ${resizerWidthHalf}px)`;
+        // 设置宽度，包含计算值
+        const editorWidth = `calc(${editorPercent}% - ${resizerWidthHalf}px)`;
+        const previewWidth = `calc(${100 - editorPercent}% - ${resizerWidthHalf}px)`;
         
-        // 更新设置但不保存
+        editorSection.style.width = editorWidth;
+        previewSection.style.width = previewWidth;
+        
+        // 更新设置时保存完整的计算值
         if (!currentSettings) {
             currentSettings = {};
         }
-        currentSettings.editorWidth = `${editorPercent}%`;
-        currentSettings.previewWidth = `${100 - editorPercent}%`;
+        currentSettings.editorWidth = editorWidth;
+        currentSettings.previewWidth = previewWidth;
         
         // 使用防抖保存设置
         debouncedSaveResizerSettings();

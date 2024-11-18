@@ -22,7 +22,23 @@ console.log('[Page] 开始加载页面 (0ms)');
 
 // 添加缓存相关变量
 const AUTH_CACHE_KEY = 'auth_cache';
-const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存时间
+const AUTH_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时缓存时间
+
+// 添加一个自动更新认证缓存的函数
+function refreshAuthCache() {
+    const cache = localStorage.getItem(AUTH_CACHE_KEY);
+    if (cache) {
+        try {
+            const { status } = JSON.parse(cache);
+            if (status) {
+                updateAuthCache(status);
+                console.log('[Auth] 自动更新认证缓存时间');
+            }
+        } catch (e) {
+            console.error('[Auth] 刷新认证缓存失败:', e);
+        }
+    }
+}
 
 // 检查认证缓存
 function checkAuthCache() {
@@ -33,6 +49,10 @@ function checkAuthCache() {
             // 检查缓存是否在有效期内
             if (Date.now() - timestamp < AUTH_CACHE_DURATION) {
                 console.log('[Auth] 使用缓存的认证状态', getElapsedTime());
+                // 如果距离上次更新超过1小时，则刷新缓存时间
+                if (Date.now() - timestamp > 60 * 60 * 1000) {
+                    refreshAuthCache();
+                }
                 return status;
             } else {
                 console.log('[Auth] 认证缓存已过期', getElapsedTime());
@@ -143,16 +163,14 @@ async function validateTokenInBackground() {
             setTimeout(() => {
                 document.getElementById('editor-container').classList.add('hidden');
                 document.getElementById('auth-container').classList.remove('hidden');
-                // 可能需要保存当前编辑的内容
-                // saveNote(editor.value, false, false);
             }, 300);
         } else {
             console.log('[Auth] 后台验证成功，token 有效');
+            // 成功验证后刷新缓存时间
+            refreshAuthCache();
         }
     } catch (error) {
         console.error('[Auth] 后台验证出错:', error);
-        // 如果是网络错误，我们可以选择不做处理，让用户继续使用
-        // 等到实际发生请求错误时再处理
     }
 }
 
@@ -256,7 +274,6 @@ async function authenticate() {
         loadingFinished = false;
         console.log('[Auth] 开始登录流程 (0ms)');
         
-        // 延迟显示 loading
         loadingTimer = setTimeout(() => {
             if (!loadingFinished) {
                 showLoading();
@@ -273,9 +290,19 @@ async function authenticate() {
         });
         console.log('[Auth] 登录请求响应完成', getElapsedTime());
 
-        if (response.ok) {
+        const data = await response.json();
+        if (response.ok && data.success) {
+            // 在登录成功后，先验证认证状态
+            const authCheck = await fetch('/api/check-auth');
+            const authData = await authCheck.json();
+            
+            if (!authCheck.ok || !authData.success) {
+                throw new Error('认证验证失败');
+            }
+            
             updateAuthCache(true);
             console.log('[Auth] 登录成功，开始准备编辑器', getElapsedTime());
+            
             document.getElementById('auth-container').classList.add('hidden');
             document.getElementById('editor-container').classList.remove('hidden');
             document.getElementById('password').value = '';
@@ -292,7 +319,6 @@ async function authenticate() {
             loadingTimer = null;
             loadingFinished = true;
             
-            const data = await response.json();
             console.log('[Auth] 登录失败，显示错误信息', getElapsedTime());
             alert(data.error || '密码错误');
             document.getElementById('loading-container').classList.add('hidden');
