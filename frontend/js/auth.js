@@ -224,7 +224,7 @@ async function initializeEditor() {
         if (!loadingFinished) {
             showLoading();
         }
-    }, 500);
+    }, 800);
     
     try {
         // 等待编辑器初始化完成
@@ -267,9 +267,23 @@ function handleAuthFailure() {
     loadingStartTime = null;
 }
 
-async function authenticate() {
+async function handleAuth(event) {
+    event.preventDefault();
+    
     const password = document.getElementById('password').value;
+    const button = document.querySelector('.auth-button');
+    const inputGroup = document.querySelector('.auth-input-group');
+    
+    if (!password) {
+        inputGroup.classList.add('error');
+        return;
+    }
+    
     try {
+        button.disabled = true;
+        button.classList.add('loading');
+        inputGroup.classList.remove('error');
+        
         loadingStartTime = Date.now();
         loadingFinished = false;
         console.log('[Auth] 开始登录流程 (0ms)');
@@ -315,28 +329,37 @@ async function authenticate() {
             
             hideLoading();
         } else {
-            clearTimeout(loadingTimer);
-            loadingTimer = null;
-            loadingFinished = true;
-            
-            console.log('[Auth] 登录失败，显示错误信息', getElapsedTime());
-            alert(data.error || '密码错误');
-            document.getElementById('loading-container').classList.add('hidden');
-            console.log('[Auth] 错误处理完成', getElapsedTime());
-            loadingStartTime = null;
+            throw new Error(data.error || '密码错误');
         }
     } catch (error) {
+        console.error('[Auth] 登录失败:', error);
+        inputGroup.classList.add('error');
+        document.getElementById('password').focus();
+    } finally {
+        button.disabled = false;
+        button.classList.remove('loading');
         clearTimeout(loadingTimer);
         loadingTimer = null;
         loadingFinished = true;
-        
-        console.error('[Auth] 登录过程发生错误:', error, getElapsedTime());
-        alert('认证失败，请重试');
         document.getElementById('loading-container').classList.add('hidden');
-        console.log('[Auth] 错误处理完成', getElapsedTime());
         loadingStartTime = null;
     }
 }
+
+// 添加事件监听器，确保页面加载完成后绑定
+document.addEventListener('DOMContentLoaded', () => {
+    // 自动聚焦密码输入框
+    const passwordInput = document.getElementById('password');
+    if (passwordInput) {
+        passwordInput.focus();
+    }
+    
+    // 监听输入，移除错误状态
+    passwordInput.addEventListener('input', () => {
+        const inputGroup = document.querySelector('.auth-input-group');
+        inputGroup.classList.remove('error');
+    });
+});
 
 // 添加获取经过时间的辅助函数
 function getElapsedTime() {

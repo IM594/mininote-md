@@ -26,9 +26,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/javascript.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github.min.css" id="light-code-theme">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github-dark.min.css" id="dark-code-theme" disabled>
 </head>
@@ -38,8 +35,18 @@
     </div>
     
     <div id="auth-container" class="auth-container">
-        <input type="password" id="password" placeholder="请输入密码">
-        <button onclick="authenticate()">确认</button>
+        <div class="auth-logo">Mini Note Md</div>
+        <div class="auth-subtitle">轻量级的 Markdown 编辑器</div>
+        <form class="auth-form" onsubmit="handleAuth(event)">
+            <div class="auth-input-group">
+                <input type="password" id="password" placeholder="输入密码" autocomplete="current-password">
+                <div class="auth-error-message">密码错误</div>
+            </div>
+            <button type="submit" class="auth-button">
+                <span class="spinner"></span>
+                <span class="button-text">登录</span>
+            </button>
+        </form>
     </div>
     
     <div id="editor-container" class="editor-container hidden">

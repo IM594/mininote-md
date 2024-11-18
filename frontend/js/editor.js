@@ -33,22 +33,25 @@ async function initEditor() {
     initMarkedConfig();
     initCodeHighlight();
     
-    // 2. 并行加载设置和笔记
+    // 2. 初始化菜单事件监听（这是必需的UI交互）
+    initMenu();
+    
+    // 3. 并行加载设置和笔记
     const loadSettingsPromise = loadSettings();
     const loadNotePromise = loadNote(currentPath);
     
-    // 3. 在等待加载时，先初始化事件监听器
+    // 4. 在等待加载时，先初始化核心事件监听器
     initCoreEventListeners(document.getElementById('editor'));
     
-    // 4. 设置视图模式（不依赖设置和笔记内容）
+    // 5. 设置视图模式（不依赖设置和笔记内容）
     if (!currentSettings?.viewMode) {
         toggleView('both');
     }
     
-    // 5. 等待加载完成
+    // 6. 等待加载完成
     await Promise.all([loadSettingsPromise, loadNotePromise]);
     
-    // 6. 延迟初始化非核心功能
+    // 7. 延迟初始化非核心功能
     queueMicrotask(() => {
         startAutoSave();
         initNonCoreFeatures();
@@ -104,9 +107,6 @@ function initCoreEventListeners(editor) {
 // 初始化非核心功能
 function initNonCoreFeatures() {
     console.log('[Editor] 开始初始化非核心功能', getEditorElapsedTime());
-    
-    // 初始化菜单
-    initMenu();
     
     // 检查并应用深色模式
     checkDarkMode();
@@ -242,95 +242,142 @@ async function loadNote(path) {
     console.log('[Editor] 开始加载笔记内容', getEditorElapsedTime());
     const editor = document.getElementById('editor');
     
-    // 尝试从缓存加载
-    const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
-    if (cachedNote) {
-        try {
-            const { content, timestamp } = JSON.parse(cachedNote);
-            console.log('[Editor] 使用缓存的笔记内容', getEditorElapsedTime());
-            editor.value = content;
-            lastSavedContent = content;
-            renderPreview(content);
-            
-            // 更新缓存列表顺序
-            updateNoteCacheList(path);
-            
-            // 在后台更新缓存
-            updateNoteCache(path);
-            return;
-        } catch (e) {
-            console.error('解析笔记缓存失败:', e);
-        }
-    }
-    
-    // 如果没有缓存，从服务器加载
-    const response = await fetch(`/api/note/${path}`);
-    const note = await response.text();
-    console.log('[Editor] 笔记内容获取完成', getEditorElapsedTime());
-    
-    // 更新缓存
     try {
-        localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
-            content: note,
-            timestamp: Date.now()
-        }));
-        // 更新缓存列表
-        updateNoteCacheList(path);
-    } catch (e) {
-        console.error('保存笔记缓存失败:', e);
+        // 尝试从缓存加载
+        const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+        if (cachedNote) {
+            try {
+                const { content, timestamp } = JSON.parse(cachedNote);
+                // 验证缓存的内容不是错误息
+                if (content && typeof content === 'string' && !content.includes('"error"')) {
+                    console.log('[Editor] 使用缓存的笔记内容', getEditorElapsedTime());
+                    editor.value = content;
+                    lastSavedContent = content;
+                    renderPreview(content);
+                    
+                    // 更新缓存列表顺序
+                    updateNoteCacheList(path);
+                    
+                    // 在后台更新缓存
+                    updateNoteCache(path);
+                    return;
+                } else {
+                    // 如果缓存内容是错误信息，删除这个缓存
+                    localStorage.removeItem(NOTE_CACHE_KEY + path);
+                }
+            } catch (e) {
+                console.error('解析笔记缓存失败:', e);
+                localStorage.removeItem(NOTE_CACHE_KEY + path);
+            }
+        }
+        
+        // 如果没有缓存，从服务器加载
+        const response = await fetch(`/api/note/${path}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch note');
+        }
+        const note = await response.text();
+        console.log('[Editor] 笔记内容获取完成', getEditorElapsedTime());
+        
+        // 更新编辑器内容
+        editor.value = note;
+        lastSavedContent = note;
+        
+        // 更新缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: note,
+                timestamp: Date.now()
+            }));
+            // 更新缓存列表
+            updateNoteCacheList(path);
+        } catch (e) {
+            console.error('保存笔记缓存失败:', e);
+        }
+        
+        console.log('[Editor] 开始首次渲染预览', getEditorElapsedTime());
+        renderPreview(note);
+        console.log('[Editor] 首次渲染预览完成', getEditorElapsedTime());
+    } catch (error) {
+        console.error('加载笔记失败:', error);
+        editor.value = '';
+        lastSavedContent = '';
+        renderPreview('');
     }
-    
-    editor.value = note;
-    lastSavedContent = note;
-    console.log('[Editor] 开始首次渲染预览', getEditorElapsedTime());
-    renderPreview(note);
-    console.log('[Editor] 首次渲染预览完成', getEditorElapsedTime());
 }
+
+// 添加处理浏览器前进后退的事件监听
+window.addEventListener('popstate', async (event) => {
+    const path = window.location.pathname.slice(1);
+    if (path) {
+        currentPath = path;
+        await loadNote(path);
+    }
+});
 
 // 添加后台更新笔记缓存的函数
 async function updateNoteCache(path) {
     try {
         const response = await fetch(`/api/note/${path}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch note');
+        }
         const note = await response.text();
-        localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
-            content: note,
-            timestamp: Date.now()
-        }));
-        console.log('[Editor] 后台更新记缓存完成');
+        
+        // 验证返回的内容不是错误信息
+        try {
+            const errorObj = JSON.parse(note);
+            if (errorObj.error) {
+                throw new Error('Invalid note content');
+            }
+        } catch (e) {
+            // 如果不能解析为 JSON，说明是正常的笔记内容
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: note,
+                timestamp: Date.now()
+            }));
+            console.log('[Editor] 后台更新笔记缓存完成');
+        }
     } catch (e) {
         console.error('后台更新笔记缓存失败:', e);
+        // 发生错误时删除可能已损坏的缓存
+        localStorage.removeItem(NOTE_CACHE_KEY + path);
     }
 }
 
-// 初始化菜单
+// 优化 initMenu 函数
 function initMenu() {
     const menuButton = document.getElementById('menu-button');
     const menuPanel = document.getElementById('menu-panel');
     
-    menuButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menuPanel.classList.toggle('hidden');
-    });
-    
-    // 点击外部关闭菜单
-    document.addEventListener('click', (e) => {
-        // 检查点击是否在历史记录模态框内
-        const isHistoryModal = e.target.closest('.history-modal');
-        // 如果点击在历史记录模态框内，不关闭菜单
-        if (isHistoryModal) {
-            return;
-        }
+    // 使用事件委托处理文档点击
+    if (!window.menuHandler) {
+        window.menuHandler = (e) => {
+            const isHistoryModal = e.target.closest('.history-modal');
+            const isMenuButton = e.target.closest('#menu-button');
+            const isMenuPanel = e.target.closest('#menu-panel');
+            
+            // 如果点击在历史记录模态框内，不做任何处理
+            if (isHistoryModal) {
+                return;
+            }
+            
+            // 如果点击在菜单按钮上，切换菜单显示状态
+            if (isMenuButton) {
+                e.stopPropagation();
+                menuPanel.classList.toggle('hidden');
+                return;
+            }
+            
+            // 如果点击在其他地方，隐藏菜单
+            if (!isMenuPanel) {
+                menuPanel.classList.add('hidden');
+            }
+        };
         
-        // 如果点击不在菜单按钮和菜单面板内，则关闭菜单
-        if (!menuButton.contains(e.target) && !menuPanel.contains(e.target)) {
-            menuPanel.classList.add('hidden');
-        }
-    });
-    
-    // 阻止菜单面板的点击事件冒泡
-    menuPanel.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
+        // 只添加一次事件监听器
+        document.addEventListener('click', window.menuHandler);
+    }
 }
 
 // 导到指定日期
@@ -629,7 +676,7 @@ async function updateFontSize(target, size) {
     await saveSettings(true);
 }
 
-// 修改保存设置函数，只在非防抖的直接调用时才显示错误
+// 修改保存设置函数，只非防抖的直接调用才显示错误
 async function saveSettings(silent = false) {
     if (!currentSettings) return;
     
@@ -751,7 +798,7 @@ function createHistoryModal(histories) {
     return modal;
 }
 
-// 修改查看历史记录详的函数
+// 修改查看史记录详的函数
 async function viewHistoryDetail(timestamp) {
     try {
         const response = await fetch(`/api/history/${currentPath}/${timestamp}`);
@@ -1049,7 +1096,7 @@ async function deleteNote(path, button) {
         if (response.ok) {
             const noteItem = button.closest('.note-item');
             noteItem.remove();
-            showNotification('笔记已删除');
+            showNotification('记已删除');
             
             // 如果删除的当前笔记，跳转到今天
             if (path === currentPath) {
@@ -1382,11 +1429,27 @@ async function previewNote(path) {
 async function logout() {
     try {
         await fetch('/api/logout', { method: 'POST' });
-        // 清除本地设置
+        // 清除所有笔记缓存
+        clearAllNoteCache();
+        // 清除编辑器设置
         localStorage.removeItem('editor_settings');
         window.location.reload();
     } catch (error) {
         console.error('登出失败:', error);
+    }
+}
+
+// 添加清除所有笔记缓存的函数
+function clearAllNoteCache() {
+    // 清除缓存列表
+    localStorage.removeItem(NOTE_CACHE_LIST_KEY);
+    
+    // 清除所有笔记缓存
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith(NOTE_CACHE_KEY)) {
+            localStorage.removeItem(key);
+        }
     }
 }
 
