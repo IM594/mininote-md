@@ -1,12 +1,12 @@
 :root {
     --bg-color: #ffffff;
-    --outer-bg-color: #f5f5f5;
-    --text-color: #333333;
-    --border-color: #e0e0e0;
-    --menu-bg: rgba(255, 255, 255, 0.95);
-    --primary-color: #4a90e2;
-    --hover-color: #357abd;
-    --shadow-color: rgba(0, 0, 0, 0.1);
+    --outer-bg-color: #f8f9fa;
+    --text-color: #212529;
+    --border-color: #dee2e6;
+    --menu-bg: rgba(255, 255, 255, 0.98);
+    --primary-color: #3b5bdb;
+    --hover-color: #364fc7;
+    --shadow-color: rgba(0, 0, 0, 0.06);
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 12px;
@@ -26,20 +26,20 @@
 }
 
 [data-theme="dark"] {
-    --bg-color: #1a1a1a;
-    --outer-bg-color: #141414;
-    --text-color: #e0e0e0;
-    --border-color: #404040;
-    --menu-bg: rgba(40, 40, 40, 0.95);
-    --primary-color: #64b5f6;
-    --hover-color: #42a5f5;
-    --shadow-color: rgba(0, 0, 0, 0.3);
+    --bg-color: #18191c;
+    --outer-bg-color: #141518;
+    --text-color: #e9ecef;
+    --border-color: #343a40;
+    --menu-bg: rgba(24, 25, 28, 0.98);
+    --primary-color: #5c7cfa;
+    --hover-color: #748ffc;
+    --shadow-color: rgba(0, 0, 0, 0.2);
 }
 
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: var(--bg-color);
@@ -57,49 +57,131 @@ body {
     align-items: center;
     justify-content: center;
     height: 100vh;
-    gap: 20px;
+    gap: 24px;
     background: var(--bg-color);
     transition: var(--transition);
+    text-align: center;
 }
 
-.auth-container input {
-    width: 280px;
+.auth-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.auth-logo-icon > img {
+    width: 5vh;
+    height: 5vh;
+}
+
+.auth-logo-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.auth-subtitle {
+    font-size: 13px;
+    color: var(--text-color);
+    opacity: 0.5;
+    text-align: center;
+}
+
+.auth-form {
+    width: 100%;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.auth-input-group {
+    position: relative;
+    width: 100%;
+}
+
+.auth-input-group input {
+    width: 100%;
     padding: 12px 16px;
-    border: 2px solid var(--border-color);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    font-size: 16px;
+    font-size: 14px;
     background: var(--bg-color);
     color: var(--text-color);
     transition: var(--transition);
+    box-sizing: border-box;
 }
 
-.auth-container input:focus {
+.auth-input-group input:focus {
     border-color: var(--primary-color);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    box-shadow: 0 0 0 2px rgba(92, 124, 250, 0.1);
 }
 
-.auth-container button {
-    width: 280px;
-    padding: 12px;
+.auth-input-group.error input {
+    border-color: #e03131;
+    box-shadow: 0 0 0 2px rgba(224, 49, 49, 0.1);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-input-group.error input:focus {
+    border-color: #e03131;
+    box-shadow: 0 0 0 2px rgba(224, 49, 49, 0.1);
+}
+
+.auth-button {
+    width: 100%;
+    height: 42px;
+    padding: 0 16px;
     border: none;
     border-radius: var(--radius-md);
     background: var(--primary-color);
     color: white;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
-    margin: 0;
+    gap: 8px;
+    position: relative;
 }
 
-.auth-container button:hover {
+.auth-button:hover {
     background: var(--hover-color);
-    transform: translateY(-1px);
+}
+
+.auth-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.auth-button .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: auth-spin 0.6s linear infinite;
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.auth-button.loading .spinner {
+    display: block;
+}
+
+.auth-button.loading .button-text {
+    visibility: hidden;
+}
+
+@keyframes auth-spin {
+    to { transform: translateX(-50%) rotate(360deg); }
 }
 
 .editor-container {
@@ -566,11 +648,6 @@ select:focus {
     opacity: 0.7;
 }
 
-.error {
-    text-align: center;
-    padding: 20px;
-    color: #f44336;
-}
 
 /* 添加按钮禁用状态样式 */
 button:disabled {
@@ -743,7 +820,7 @@ button:disabled:hover {
     opacity: 0.8;
 }
 
-/* 修改值显示的样式，���保数值和单位连在一起 */
+/* 修改值显示的样式，保数值和单位在一起 */
 .control-group label span {
     color: var(--text-color);
     opacity: 0.8;
@@ -882,7 +959,7 @@ input[type="range"]::-moz-range-thumb {
     padding: 0 16px;
     font-size: 14px;
     white-space: nowrap;
-    min-width: 100px; /* 统最小宽度 */
+    min-width: 100px; /* 统最宽度 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1267,7 +1344,7 @@ td,
     transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 移除所有按钮的margin */
+/* 移除所有按钮margin */
 button {
     margin: 0;
 }
@@ -1327,5 +1404,52 @@ button {
 .loading-container.fade-out {
     opacity: 0;
     pointer-events: none;
+}
+
+/* 在文件末尾添加引用样式 */
+
+/* 引用块样式 */
+#preview blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--primary-color);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: var(--radius-sm);
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+/* 深色模式下的引用块样式 */
+[data-theme="dark"] #preview blockquote {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* 引用块内的段落样式 */
+#preview blockquote p {
+    margin: 0.5em 0;
+}
+
+/* 嵌套引用块样式 */
+#preview blockquote blockquote {
+    margin: 0.5em 0;
+    border-left-color: var(--border-color);
+}
+
+/* 引用块内的列表样式 */
+#preview blockquote ul,
+#preview blockquote ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+/* 引用块内的代码样式 */
+#preview blockquote code {
+    background: rgba(0, 0, 0, 0.04);
+    padding: 0.2em 0.4em;
+    border-radius: var(--radius-sm);
+}
+
+[data-theme="dark"] #preview blockquote code {
+    background: rgba(255, 255, 255, 0.04);
 }
   

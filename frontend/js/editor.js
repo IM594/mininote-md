@@ -3,6 +3,11 @@ let currentPath = '';
 let currentSettings = null;
 let autoSaveInterval = null;
 let justEnteredFromList = false;
+let editorInitStartTime = null;
+
+// 添加一个保存设置的队列控制
+// let settingsSavePromise = Promise.resolve();
+// let pendingSettingsUpdate = null;
 
 // 添加 URL 处理函数
 function handleUrl() {
@@ -19,12 +24,56 @@ function handleUrl() {
 
 // 初始化编辑器
 async function initEditor() {
+    editorInitStartTime = Date.now();
+    console.log('[Editor] 开始初始化编辑器 (0ms)');
+    
     handleUrl();
     
-    const editor = document.getElementById('editor');
-    const preview = document.getElementById('preview');
+    // 1. 先初始化基本配置，这些是同步操作，很快
+    initMarkedConfig();
+    initCodeHighlight();
     
-    // 初始化marked配置
+    // 2. 初始化菜单事件监听（这是必需的UI交互）
+    initMenu();
+    
+    // 3. 先加载设置，因为笔记加载可能依赖设置
+    try {
+        await loadSettings();
+    } catch (error) {
+        console.error('[Editor] 加载设置失败:', error);
+        // 即使设置加载失败，也继续执行
+    }
+    
+    // 4. 再加载笔记
+    try {
+        await loadNote(currentPath);
+    } catch (error) {
+        console.error('[Editor] 加载笔记失败:', error);
+        // 如果是认证错误，让它抛出去
+        if (error.message.includes('401') || error.message.includes('认证')) {
+            throw error;
+        }
+    }
+    
+    // 5. 初始化核心事件监听器
+    initCoreEventListeners(document.getElementById('editor'));
+    
+    // 6. 设置视图模式（不依赖设置和笔记内容）
+    if (!currentSettings?.viewMode) {
+        toggleView('both');
+    }
+    
+    // 7. 延迟初始化非核心功能
+    queueMicrotask(() => {
+        startAutoSave();
+        initNonCoreFeatures();
+    });
+    
+    return Promise.resolve();
+}
+
+// 初始化 marked 配置
+function initMarkedConfig() {
     marked.setOptions({
         highlight: function(code, lang) {
             if (lang && hljs.getLanguage(lang)) {
@@ -43,42 +92,36 @@ async function initEditor() {
         smartypants: false,
         tables: true
     });
-    
-    // 等待加载笔记和设置
-    await Promise.all([
-        loadNote(currentPath),
-        loadSettings()
-    ]);
-    
-    // 如果没有保存的视图模式，默认使用分屏模式
-    if (!currentSettings || !currentSettings.viewMode) {
-        toggleView('both');
-    }
-    
-    // 添加手动保存快捷键
+}
+
+// 初始化核心事件监听器
+function initCoreEventListeners(editor) {
+    // 手动保存快捷键
     editor.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();  // 阻止浏览器默认的保存行为
-            saveNote(editor.value, true, true);  // 手动保存并创建历史记录
-            return false;  // 进一步确保阻止默认行为
+            e.preventDefault();
+            saveNote(editor.value, true, true);
+            return false;
         }
     });
     
-    // 实时预览
+    // 实时预览，延迟缓存和保存
     editor.addEventListener('input', () => {
         const content = editor.value;
+        // 立即更新预览
         renderPreview(content);
+        // 延迟更新本地缓存和保存到服务器
+        updateLocalNoteCache(content);
         saveNote(content, false, false);
     });
-    
-    // 初始化菜单
-    initMenu();
+}
+
+// 初始化非核心功能
+function initNonCoreFeatures() {
+    console.log('[Editor] 开始初始化非核心功能', getEditorElapsedTime());
     
     // 检查并应用深色模式
     checkDarkMode();
-    
-    // 初始化代码高亮
-    initCodeHighlight();
     
     // 监听系统主题变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
@@ -87,140 +130,277 @@ async function initEditor() {
         }
     });
     
-    // 启动自动保存
-    startAutoSave();
-    
     // 添加 Tab 键处理
+    const editor = document.getElementById('editor');
     editor.addEventListener('keydown', handleTabKey);
     
     // 添加回车键处理
     editor.addEventListener('keydown', handleEnterKey);
     
-    // 确保所有初始化都完成
-    return Promise.resolve();
+    console.log('[Editor] 非核心功能初始化完成', getEditorElapsedTime());
+}
+
+// 获取编辑器初始化经过时间
+function getEditorElapsedTime() {
+    if (!editorInitStartTime) return '';
+    const elapsed = Date.now() - editorInitStartTime;
+    return `(${elapsed}ms)`;
 }
 
 // 渲染预览
 function renderPreview(content) {
+    const startTime = performance.now();
     const preview = document.getElementById('preview');
     const scrollTop = preview.scrollTop;
     
-    const fragment = document.createDocumentFragment();
-    const tempDiv = document.createElement('div');
+    // 先渲染基本内容
+    const htmlContent = marked.parse(content);
+    preview.innerHTML = htmlContent;
+    preview.scrollTop = scrollTop;
     
-    // 修改 marked 的配置，添加默认语言支持
-    marked.setOptions({
-        highlight: function(code, language) {
-            // 如果没有指定语言，使用默认语言
-            if (!language && currentSettings && currentSettings.defaultCodeLanguage) {
-                language = currentSettings.defaultCodeLanguage;
-            }
-            
-            // 只在有语言且该语言被支持时才进行高亮
-            if (language && hljs.getLanguage(language)) {
-                try {
-                    return hljs.highlight(code, { language: language }).value;
-                } catch (err) {
-                    console.error('代码高亮错误:', err);
+    // 延迟处理代码块
+    setTimeout(() => {
+        const codeBlocks = preview.querySelectorAll('pre code');
+        if (codeBlocks.length > 0) {
+            codeBlocks.forEach((block) => {
+                if (block.className && block.className.startsWith('language-')) {
+                    hljs.highlightElement(block);
                 }
-            }
-            // 如果没有指定语言或语言不支持，返回转义后的原始代码
-            return escapeHtml(code);
-        }
-    });
-    
-    tempDiv.innerHTML = marked.parse(content);
-    
-    // 处理代码块
-    tempDiv.querySelectorAll('pre code').forEach((block) => {
-        const originalHeight = block.offsetHeight;
-        if (originalHeight) {
-            block.style.minHeight = `${originalHeight}px`;
-        }
-        
-        // 如果代码块没有语言类，添加默认语言
-        if (!block.className && currentSettings && currentSettings.defaultCodeLanguage) {
-            block.className = `language-${currentSettings.defaultCodeLanguage}`;
-        }
-        
-        // 只有当代码块有语言类时才应用高亮
-        if (block.className && block.className.startsWith('language-')) {
-            hljs.highlightElement(block);
-        }
-        
-        // 添加复制按钮
-        const pre = block.parentElement;
-        if (!pre.querySelector('.copy-button')) {
-            const copyButton = document.createElement('button');
-            copyButton.className = 'copy-button';
-            copyButton.innerHTML = '复制';
-            copyButton.addEventListener('click', () => {
-                const code = block.textContent;
-                navigator.clipboard.writeText(code).then(() => {
-                    copyButton.innerHTML = '已复制!';
-                    setTimeout(() => {
-                        copyButton.innerHTML = '复制';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('复制失败:', err);
-                    copyButton.innerHTML = '复制失败';
-                    setTimeout(() => {
-                        copyButton.innerHTML = '复制';
-                    }, 2000);
-                });
+                // 延迟添加复制按钮
+                setTimeout(() => {
+                    addCopyButton(block);
+                }, 0);
             });
-            pre.appendChild(copyButton);
         }
-    });
+    }, 0);
+}
+
+// 抽取复制按钮逻辑
+function addCopyButton(block) {
+    const pre = block.parentElement;
+    if (!pre.querySelector('.copy-button')) {
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '复制';
+        copyButton.addEventListener('click', () => {
+            const code = block.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                copyButton.innerHTML = '已复制!';
+                setTimeout(() => {
+                    copyButton.innerHTML = '复制';
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                copyButton.innerHTML = '复制失败';
+                setTimeout(() => {
+                    copyButton.innerHTML = '复制';
+                }, 2000);
+            });
+        });
+        pre.appendChild(copyButton);
+    }
+}
+
+// 添加笔记缓存管理
+const NOTE_CACHE_KEY = 'note_cache_';
+const NOTE_CACHE_LIST_KEY = 'note_cache_list';
+const MAX_NOTE_CACHE = 3;
+
+// 获取缓存列表
+function getCacheList() {
+    try {
+        const list = localStorage.getItem(NOTE_CACHE_LIST_KEY);
+        return list ? JSON.parse(list) : [];
+    } catch (e) {
+        console.error('读取缓存列表失败:', e);
+        return [];
+    }
+}
+
+// 保存缓存列表
+function saveCacheList(list) {
+    try {
+        localStorage.setItem(NOTE_CACHE_LIST_KEY, JSON.stringify(list));
+    } catch (e) {
+        console.error('保存缓存列表失败:', e);
+    }
+}
+
+// 更新笔记缓存
+function updateNoteCacheList(path) {
+    let cacheList = getCacheList();
     
-    while (tempDiv.firstChild) {
-        fragment.appendChild(tempDiv.firstChild);
+    // 如果已存在，移到最前面
+    cacheList = cacheList.filter(p => p !== path);
+    cacheList.unshift(path);
+    
+    // 如果超过最大数量，删除最旧的缓存
+    if (cacheList.length > MAX_NOTE_CACHE) {
+        const removedPath = cacheList.pop();
+        try {
+            localStorage.removeItem(NOTE_CACHE_KEY + removedPath);
+            console.log(`[Cache] 移除最旧的缓存: ${removedPath}`);
+        } catch (e) {
+            console.error('删除旧缓存失败:', e);
+        }
     }
     
-    preview.innerHTML = '';
-    preview.appendChild(fragment);
-    preview.scrollTop = scrollTop;
+    saveCacheList(cacheList);
+    console.log('[Cache] 当前缓存列表:', cacheList);
 }
 
-// 加载笔记
+// 修改 loadNote 函数
 async function loadNote(path) {
+    console.log('[Editor] 开始加载笔记内容', getEditorElapsedTime());
     const editor = document.getElementById('editor');
-    const response = await fetch(`/api/note/${path}`);
-    const note = await response.text();
-    editor.value = note;
-    lastSavedContent = note;
-    renderPreview(note);
+    
+    try {
+        // 优先从服务器获取内容
+        const response = await RequestManager.fetch(`/api/note/${path}`, {
+            timeout: 5000
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch note: ${response.status}`);
+        }
+        
+        // 获取服务器内容
+        let serverContent = await response.text();
+        const serverTimestamp = new Date(response.headers.get('Last-Modified')).getTime() || Date.now();
+        
+        if (!serverContent) {
+            serverContent = ''; // 确保空笔记也是空字符串而不是 null
+        }
+        
+        // 更新编辑器内容和缓存
+        editor.value = serverContent;
+        lastSavedContent = serverContent;
+        renderPreview(serverContent);
+        
+        // 更新本地缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: serverContent,
+                timestamp: serverTimestamp
+            }));
+            updateNoteCacheList(path);
+            console.log('[Editor] 本地缓存已更新');
+        } catch (e) {
+            console.error('更新本地缓存失败:', e);
+        }
+        
+    } catch (error) {
+        console.error('加载笔记失败:', error);
+        if (error.message.includes('401') || error.message.includes('认证')) {
+            throw error;
+        }
+        
+        // 服务器请求失败时，尝试使用本地缓存
+        try {
+            const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+            if (cachedNote) {
+                const cached = JSON.parse(cachedNote);
+                editor.value = cached.content;
+                lastSavedContent = cached.content;
+                renderPreview(cached.content);
+                showNotification('使用本地缓存的内容，无法连接服务器', true);
+                return;
+            }
+        } catch (e) {
+            console.error('读取本地缓存失败:', e);
+        }
+        
+        // 如果没有缓存且服务器请求失败，使用空内容
+        editor.value = '';
+        lastSavedContent = '';
+        renderPreview('');
+    }
 }
 
-// 初始化菜单
+// 添加处理浏览器前进后退的事件监听
+window.addEventListener('popstate', async (event) => {
+    const path = window.location.pathname.slice(1);
+    if (path) {
+        currentPath = path;
+        await loadNote(path);
+    }
+});
+
+// 修改后台更新笔记缓存的函数
+async function updateNoteCache(path) {
+    try {
+        const response = await RequestManager.fetch(`/api/note/${path}`, {
+            timeout: 3000
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch note');
+        }
+        
+        // 处理空响应的情况
+        let note = await response.text();
+        if (!note) {
+            note = ''; // 确保空笔记也是空字符串而不是 null
+        }
+        
+        // 验证返回的内容不是错误信息
+        try {
+            const errorObj = JSON.parse(note);
+            if (errorObj.error) {
+                throw new Error('Invalid note content');
+            }
+        } catch (e) {
+            // 如果不能解析为 JSON，说明是正常的笔记内容
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: note,
+                timestamp: Date.now()
+            }));
+            console.log('[Editor] 后台更新笔记缓存完成');
+        }
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('[Editor] 后台更新缓存超时或被取消，忽略');
+            return;
+        }
+        console.error('后台更新笔记缓存失败:', error);
+        // 发生错误时删除可能已损坏的缓存
+        localStorage.removeItem(NOTE_CACHE_KEY + path);
+    }
+}
+
+// 优化 initMenu 函数
 function initMenu() {
     const menuButton = document.getElementById('menu-button');
     const menuPanel = document.getElementById('menu-panel');
     
-    menuButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menuPanel.classList.toggle('hidden');
-    });
-    
-    // 点击外部关闭菜单
-    document.addEventListener('click', (e) => {
-        // 检查点击是否在历史记录模态框内
-        const isHistoryModal = e.target.closest('.history-modal');
-        // 如果点击在历史记录模态框内，不关闭菜单
-        if (isHistoryModal) {
-            return;
-        }
+    // 使用事件委托处理文档点击
+    if (!window.menuHandler) {
+        window.menuHandler = (e) => {
+            const isHistoryModal = e.target.closest('.history-modal');
+            const isMenuButton = e.target.closest('#menu-button');
+            const isMenuPanel = e.target.closest('#menu-panel');
+            
+            // 如果点击在历史记录模态框内，不做任何处理
+            if (isHistoryModal) {
+                return;
+            }
+            
+            // 如果点击在菜单按钮上，切换菜单显示状态
+            if (isMenuButton) {
+                e.stopPropagation();
+                menuPanel.classList.toggle('hidden');
+                return;
+            }
+            
+            // 如果点击在其他地方，隐藏菜单
+            if (!isMenuPanel) {
+                menuPanel.classList.add('hidden');
+            }
+        };
         
-        // 如果点击不在菜单按钮和菜单面板内，则关闭菜单
-        if (!menuButton.contains(e.target) && !menuPanel.contains(e.target)) {
-            menuPanel.classList.add('hidden');
-        }
-    });
-    
-    // 阻止菜单面板的点击事件冒泡
-    menuPanel.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
+        // 只添加一次事件监听器
+        document.addEventListener('click', window.menuHandler);
+    }
 }
 
 // 导到指定日期
@@ -294,7 +474,7 @@ function toggleView(mode) {
     } else if (mode === 'edit') {
         container.classList.add('edit-only');
     } else {
-        // both 模式下初始化 resizer
+        // both 模式初始化 resizer
         initResizer();
     }
     
@@ -302,15 +482,18 @@ function toggleView(mode) {
         currentSettings = {};
     }
     currentSettings.viewMode = mode;
-    saveSettings();
+    saveSettings(true);
 }
 
+// 修改 saveNote 函数
 const saveNote = debounce(async (content, isManual = false, createHistory = false) => {
     if (content === lastSavedContent && !isManual) return;
     
     try {
-        console.log('Saving note:', { isManual, createHistory }); // 添加日志
-        await fetch(`/api/note/${currentPath}`, {
+        console.log('Saving note:', { isManual, createHistory });
+        
+        // 先保存到服务器
+        const response = await fetch(`/api/note/${currentPath}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
@@ -318,27 +501,64 @@ const saveNote = debounce(async (content, isManual = false, createHistory = fals
             },
             body: content,
         });
-        lastSavedContent = content;
         
+        if (!response.ok) {
+            throw new Error('Server responded with error');
+        }
+        
+        // 服务器保存成功后再更新本地缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+                content,
+                timestamp: Date.now()
+            }));
+            // 更新缓存列表
+            updateNoteCacheList(currentPath);
+            console.log('[Editor] 笔记本地缓存已更新');
+        } catch (e) {
+            console.error('更新笔记本地缓存失败:', e);
+        }
+        
+        lastSavedContent = content;
         if (isManual) {
             showNotification('已保存');
         }
     } catch (error) {
         console.error('保存失败:', error);
         showNotification('保存失败', true);
+        
+        // 保存失败时，保留本地缓存以防数据丢失
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+                content,
+                timestamp: Date.now()
+            }));
+            console.log('[Editor] 保存失败，已更新本地缓存');
+        } catch (e) {
+            console.error('更新本地缓存失败:', e);
+        }
     }
 }, 1000);
 
 function debounce(func, wait) {
     let timeout;
-    return function executedFunction(...args) {
+    
+    function executedFunction(...args) {
         const later = () => {
             clearTimeout(timeout);
             func(...args);
         };
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
+    }
+    
+    // 添加立即执行方法
+    executedFunction.flush = function() {
+        clearTimeout(timeout);
+        func.apply(this, arguments);
     };
+    
+    return executedFunction;
 }
 
 // 简化代码高亮初始化函数
@@ -359,40 +579,49 @@ function initCodeHighlight() {
 
 // 修改加载设置函数
 async function loadSettings() {
+    console.log('[Editor] 开始加载设置', getEditorElapsedTime());
     try {
-        // 优先使用本地存储的设置
         const localSettings = localStorage.getItem('editor_settings');
         if (localSettings) {
             try {
+                console.log('[Editor] 使用本地缓存的设置', getEditorElapsedTime());
                 const settings = JSON.parse(localSettings);
                 currentSettings = settings;
                 applySettings(settings);
                 
-                // 将本地设置同步到服务器
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: localSettings
-                });
+                // 异步同步设置到服务器，不阻塞主流程
+                setTimeout(() => {
+                    RequestManager.fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: localSettings,
+                        timeout: 3000
+                    }).catch(e => console.error('设置同步失败:', e));
+                }, 0);
                 
-                return; // 如果成功使用了本地设置，就不需要继续了
+                return;
             } catch (e) {
                 console.error('解析本地设置失败:', e);
             }
         }
 
         // 只有在没有本地设置时，才从服务器获取
-        const response = await fetch('/api/settings');
+        const response = await RequestManager.fetch('/api/settings', {
+            timeout: 3000
+        });
+        
         if (response.ok) {
             const serverSettings = await response.json();
             currentSettings = serverSettings;
             localStorage.setItem('editor_settings', JSON.stringify(serverSettings));
             applySettings(serverSettings);
+            console.log('[Editor] 从服务器加载设置完成', getEditorElapsedTime());
         }
     } catch (error) {
         console.error('加载设置失败:', error);
+        // 即使设置加载失败，也不影响继续使用
     }
 }
 
@@ -403,7 +632,7 @@ function applySettings(settings) {
     // 用主题
     document.documentElement.setAttribute('data-theme', settings.theme || 'light');
     
-    // 应用字体大小并更新显示值
+    // 应用字体大小并更新示值
     if (settings.editorFontSize) {
         document.getElementById('editor').style.fontSize = `${settings.editorFontSize}px`;
         document.getElementById('editor-font-size').value = settings.editorFontSize;
@@ -438,8 +667,17 @@ function applySettings(settings) {
     if (settings.editorWidth && settings.previewWidth && settings.viewMode === 'both') {
         const editorSection = document.querySelector('.editor-section');
         const previewSection = document.querySelector('.preview-section');
+        const resizerWidthHalf = parseFloat(getComputedStyle(document.documentElement)
+            .getPropertyValue('--resizer-width-half'));
         
-        // 直接使用保存的宽度，不再添加额外的计算
+        // 确保保存的宽度包含了计算值
+        if (!settings.editorWidth.includes('calc')) {
+            settings.editorWidth = `calc(${settings.editorWidth} - ${resizerWidthHalf}px)`;
+        }
+        if (!settings.previewWidth.includes('calc')) {
+            settings.previewWidth = `calc(${settings.previewWidth} - ${resizerWidthHalf}px)`;
+        }
+        
         editorSection.style.width = settings.editorWidth;
         previewSection.style.width = settings.previewWidth;
     }
@@ -460,48 +698,41 @@ async function updateFontSize(target, size) {
     }
     
     currentSettings[`${target}FontSize`] = parseInt(size);
-    await saveSettings();
+    await saveSettings(true);
 }
 
 // 修改保存设置函数
-async function saveSettings() {
+const saveSettings = debounce(async (silent = false) => {
     if (!currentSettings) return;
     
     try {
-        // 确保 currentSettings 是一个有效的对象
-        if (typeof currentSettings !== 'object') {
-            throw new Error('Invalid settings format');
-        }
-        
+        // 先保存到本地
+        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
+
         // 发送请求到服务器
-        const response = await fetch('/api/settings', {
+        const response = await RequestManager.fetch('/api/settings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(currentSettings),
+            timeout: 3000
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.details || error.error || '保存设置失败');
         }
-        
-        // 成功后保存到本地
-        localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
-        
     } catch (error) {
-        console.error('保存设置失败:', error);
-        showNotification('保存设置失败: ' + error.message, true);
-        
-        // 即使服务器保存失败，也尝试保存到本地
-        try {
-            localStorage.setItem('editor_settings', JSON.stringify(currentSettings));
-        } catch (localError) {
-            console.error('本地保存设置失败:', localError);
+        // 只在非静默模式下显示错误
+        if (!silent) {
+            console.error('保存设置失败:', error);
+            if (!error.name === 'AbortError' && !error.message.includes('Failed to fetch')) {
+                showNotification('保存设置失败: ' + error.message, true);
+            }
         }
     }
-}
+}, 1000);
 
 // 添加更新行高函数
 async function updateLineHeight(target, value) {
@@ -513,7 +744,7 @@ async function updateLineHeight(target, value) {
     }
     
     currentSettings[`${target}LineHeight`] = parseFloat(value);
-    await saveSettings();
+    await saveSettings(true);
 }
 
 // 添加自动保存相关函数
@@ -529,7 +760,7 @@ function startAutoSave() {
     }, 5 * 60 * 1000); // 5分钟
 }
 
-// 添加历史记录相关函
+// 添加历史记录相关
 async function showHistory() {
     try {
         const response = await fetch(`/api/history/${currentPath}`);
@@ -543,7 +774,7 @@ async function showHistory() {
         const modal = createHistoryModal(histories);
         document.body.appendChild(modal);
     } catch (error) {
-        console.error('获取历史记录失败:', error);
+        console.error('获取历史录失败:', error);
         showNotification('获取历史记录失败', true);
     }
 }
@@ -565,7 +796,7 @@ function createHistoryModal(histories) {
             </div>
         </div>
         <div class="history-modal-body">
-            ${histories.length === 0 ? '<p>历史记录</p>' : 
+            ${histories.length === 0 ? '<p>历史录</p>' : 
                 histories.map(history => `
                     <div class="history-item">
                         <div class="history-row">
@@ -593,7 +824,7 @@ function createHistoryModal(histories) {
     return modal;
 }
 
-// 修改查看历史记录详的函数
+// 修改查看史记录详的函数
 async function viewHistoryDetail(timestamp) {
     try {
         const response = await fetch(`/api/history/${currentPath}/${timestamp}`);
@@ -610,7 +841,7 @@ async function viewHistoryDetail(timestamp) {
                 <h3>历史记录详情 - ${new Date(parseInt(timestamp)).toLocaleString()}</h3>
                 <div class="header-actions">
                     <button onclick="restoreHistory('${timestamp}')">恢复此版本</button>
-                    <button onclick="this.closest('.history-modal').remove()">关闭</button>
+                    <button onclick="this.closest('.history-modal').remove()">关</button>
                 </div>
             </div>
             <div class="history-modal-body">
@@ -663,7 +894,7 @@ function switchHistoryTab(button, type) {
     button.closest('.history-modal-body').querySelector(`.tab-content.${type}`).classList.add('active');
 }
 
-// 添加删除历史记录的函数
+// 添删除历史记录的函
 async function deleteHistory(timestamp, button) {
     if (!confirm('确定要删除这条历史记录吗？此操作不可恢复。')) {
         return;
@@ -696,7 +927,7 @@ async function deleteHistory(timestamp, button) {
     }
 }
 
-// 添加删除所有历史记录的函数
+// 添加删所有历史记录的函数
 async function deleteAllHistory() {
     if (!confirm('确定要删除所有历史记录吗？此操作不可恢复。')) {
         return;
@@ -743,7 +974,7 @@ function showNotification(message, isError = false) {
     }, 2000);
 }
 
-// 在菜单部分添加笔记列表按钮的处理函数
+// 在菜单部分添加笔记列表按钮的理函数
 function showNotesList() {
     fetchNotes().then(createNotesModal);
 }
@@ -773,7 +1004,7 @@ function createNotesModal(notes) {
             <h3>笔记列表</h3>
             <div class="header-actions">
                 <input type="text" id="notes-search" placeholder="搜索笔记..." class="search-input">
-                <button onclick="this.closest('.history-modal').remove()">关闭</button>
+                <button onclick="this.closest('.history-modal').remove()">闭</button>
             </div>
         </div>
         <div class="history-modal-body">
@@ -819,7 +1050,7 @@ function createNotesModal(notes) {
 
 // 格式化笔记路径显示
 function formatNotePath(path) {
-    // 如果是日期格式（YYYYMMDD），转换为更友好的显示
+    // 如果是日期格式（YYYYMMDD），转换为更友的显示
     if (/^\d{8}$/.test(path)) {
         return path.replace(/(\d{4})(\d{2})(\d{2})/, '$1年$2月$3日');
     }
@@ -879,7 +1110,7 @@ async function navigateToNote(path) {
 
 // 删除笔记
 async function deleteNote(path, button) {
-    if (!confirm('确定要删除这个笔记吗？此操作不可恢复。')) {
+    if (!confirm('确定要删除这个笔记吗？此操作不可恢。')) {
         return;
     }
     
@@ -891,7 +1122,7 @@ async function deleteNote(path, button) {
         if (response.ok) {
             const noteItem = button.closest('.note-item');
             noteItem.remove();
-            showNotification('笔记已删除');
+            showNotification('记已删除');
             
             // 如果删除的当前笔记，跳转到今天
             if (path === currentPath) {
@@ -918,14 +1149,8 @@ function updateLineHeightPreview(target, value) {
     // 更新实际行高
     element.style.lineHeight = value;
     
-    // 延迟保存设置
-    debounce(() => {
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings[`${target}LineHeight`] = parseFloat(value);
-        saveSettings();
-    }, 500)();
+    // 使用防抖函数保存设置
+    debouncedUpdateLineHeight(target, value);
 }
 
 // 添加字体大小实时预览函数
@@ -939,17 +1164,11 @@ function updateFontSizePreview(target, value) {
     // 更新实际字体大小
     element.style.fontSize = `${value}px`;
     
-    // 延迟保存设置
-    debounce(() => {
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings[`${target}FontSize`] = parseInt(value);
-        saveSettings();
-    }, 500)();
+    // 使用防抖函数保存设置
+    debouncedUpdateFontSize(target, value);
 }
 
-// 添加 resizer 初始化函
+// 修改 resizer 相关代码
 function initResizer() {
     const resizer = document.getElementById('resizer');
     const editorSection = document.querySelector('.editor-section');
@@ -967,6 +1186,13 @@ function initResizer() {
         container.classList.add('resizing');
         resizer.classList.add('active');
     }
+    
+    const debouncedSaveResizerSettings = debounce(async () => {
+        if (!currentSettings) {
+            currentSettings = {};
+        }
+        await saveSettings(true); // 静默模式
+    }, 1000);
     
     function handleResizing(e) {
         if (!isResizing) return;
@@ -995,16 +1221,22 @@ function initResizer() {
             editorPercent = 50;
         }
         
-        // 设置宽度
-        editorSection.style.width = `calc(${editorPercent}% - ${resizerWidthHalf}px)`;
-        previewSection.style.width = `calc(${100 - editorPercent}% - ${resizerWidthHalf}px)`;
+        // 设置宽度，包含计算值
+        const editorWidth = `calc(${editorPercent}% - ${resizerWidthHalf}px)`;
+        const previewWidth = `calc(${100 - editorPercent}% - ${resizerWidthHalf}px)`;
         
-        // 保存设置
+        editorSection.style.width = editorWidth;
+        previewSection.style.width = previewWidth;
+        
+        // 更新设置时保存完整的计算值
         if (!currentSettings) {
             currentSettings = {};
         }
-        currentSettings.editorWidth = `${editorPercent}%`;
-        currentSettings.previewWidth = `${100 - editorPercent}%`;
+        currentSettings.editorWidth = editorWidth;
+        currentSettings.previewWidth = previewWidth;
+        
+        // 使用防抖保存设置
+        debouncedSaveResizerSettings();
     }
     
     function stopResizing() {
@@ -1014,13 +1246,8 @@ function initResizer() {
         container.classList.remove('resizing');
         resizer.classList.remove('active');
         
-        // 保存分割线位置到设置
-        if (!currentSettings) {
-            currentSettings = {};
-        }
-        currentSettings.editorWidth = editorSection.style.width;
-        currentSettings.previewWidth = previewSection.style.width;
-        saveSettings();
+        // 最后一次调整时保存设置
+        debouncedSaveResizerSettings();
     }
 }
 
@@ -1100,7 +1327,7 @@ function handleTabKey(e) {
             }
         }
         
-        // 触发 input 事件以更新预览
+        // 触发 input 事件��更新预览
         const inputEvent = new Event('input');
         editor.dispatchEvent(inputEvent);
     }
@@ -1170,7 +1397,7 @@ async function updateDefaultCodeLanguage(language) {
         currentSettings = {};
     }
     currentSettings.defaultCodeLanguage = language;
-    await saveSettings();
+    await saveSettings(true);
     
     // 重新渲染预览以应用新的默认语言
     const editor = document.getElementById('editor');
@@ -1224,14 +1451,96 @@ async function previewNote(path) {
     }
 }
 
-// 修改 logout 函数，添加清除本地设置
+// 修改 logout 函数
 async function logout() {
     try {
-        await fetch('/api/logout', { method: 'POST' });
-        // 清除本地设置
-        localStorage.removeItem('editor_settings');
-        window.location.reload();
+        // 1. 立即显示登录界面
+        handleAuthFailure(true);
+        
+        // 2. 在后台执行清理工作
+        Promise.all([
+            // 发送登出请求
+            fetch('/api/logout', { method: 'POST' }),
+            
+            // 清除笔记缓存的操作
+            new Promise(resolve => {
+                setTimeout(() => {
+                    clearAllNoteCache();
+                    resolve();
+                }, 0)
+            }),
+            
+            // 清除编辑器设置
+            new Promise(resolve => {
+                setTimeout(() => {
+                    localStorage.removeItem('editor_settings');
+                    resolve();
+                }, 0)
+            })
+        ]).catch(error => {
+            console.error('后台清理操作失败:', error);
+        });
+        
     } catch (error) {
         console.error('登出失败:', error);
     }
+}
+
+// 添加清除所有笔记缓存的函数
+function clearAllNoteCache() {
+    // 清除缓存列表
+    localStorage.removeItem(NOTE_CACHE_LIST_KEY);
+    
+    // 清除所有笔记缓存
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith(NOTE_CACHE_KEY)) {
+            localStorage.removeItem(key);
+        }
+    }
+}
+
+// 添加防抖的本地缓存更新
+const updateLocalNoteCache = debounce((content) => {
+    try {
+        localStorage.setItem(NOTE_CACHE_KEY + currentPath, JSON.stringify({
+            content,
+            timestamp: Date.now()
+        }));
+        console.log('[Editor] 笔记本地缓存已更新');
+    } catch (e) {
+        console.error('更新笔记本地缓存失败:', e);
+    }
+}, 1000);  // 1秒的防抖时间 
+
+// 修改更字体大小的防抖函数
+const debouncedUpdateFontSize = debounce(async (target, size) => {
+    if (!currentSettings) {
+        currentSettings = {};
+    }
+    currentSettings[`${target}FontSize`] = parseInt(size);
+    await saveSettings(true); // 静默模式
+}, 1000);
+
+// 修改行高预览函数也使用类似的防抖处理
+const debouncedUpdateLineHeight = debounce(async (target, value) => {
+    if (!currentSettings) {
+        currentSettings = {};
+    }
+    currentSettings[`${target}LineHeight`] = parseFloat(value);
+    await saveSettings(true); // 静默模式
+}, 1000);
+
+function updateLineHeightPreview(target, value) {
+    const element = document.getElementById(target);
+    const valueDisplay = document.getElementById(`${target}-line-height-value`);
+    
+    // 更新显示值
+    valueDisplay.textContent = value;
+    
+    // 更新实际行高
+    element.style.lineHeight = value;
+    
+    // 使用防抖函数保存设置
+    debouncedUpdateLineHeight(target, value);
 } 

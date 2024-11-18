@@ -14,8 +14,8 @@ const HISTORY_DIR = path.join(__dirname, '../../data/history');
 
 // 使用 SALT 生成 JWT_SECRET
 const SALT = process.env.SALT || 'your-salt-here';
-const JWT_SECRET = crypto.createHash('sha256')
-                        .update(SALT + Date.now().toString())
+const JWT_SECRET = process.env.JWT_SECRET || crypto.createHash('sha256')
+                        .update(SALT)
                         .digest('hex');
 
 // 为了安全起见,在启动时打印一个模糊的密钥提示
@@ -127,13 +127,27 @@ app.post('/api/auth', (req, res) => {
 // 读取笔记
 app.get('/api/note/:path', authMiddleware, async (req, res) => {
     try {
-        const filePath = path.join(NOTES_DIR, `${req.params.path}.md`);
+        // 规范化路径，确保以 .md 结尾
+        let notePath = req.params.path;
+        if (!notePath.endsWith('.md')) {
+            notePath = `${notePath}.md`;
+        }
+        
+        const filePath = path.join(NOTES_DIR, notePath);
         try {
+            // 检查文件是否存在
+            const stats = await fs.stat(filePath);
             const content = await fs.readFile(filePath, 'utf-8');
+            
+            // 添加 Last-Modified 头
+            res.set('Last-Modified', stats.mtime.toUTCString());
             res.send(content);
+            
         } catch (error) {
             if (error.code === 'ENOENT') {
-                res.send(''); // 如果文件不存在，返回空内容
+                // 如果文件不存在，返回空内容和当前时间作为 Last-Modified
+                res.set('Last-Modified', new Date().toUTCString());
+                res.send('');
             } else {
                 throw error;
             }
@@ -146,7 +160,13 @@ app.get('/api/note/:path', authMiddleware, async (req, res) => {
 // 保存笔记
 app.post('/api/note/:path', authMiddleware, async (req, res) => {
     try {
-        const filePath = path.join(NOTES_DIR, `${req.params.path}.md`);
+        // 规范化路径，确保以 .md 结尾
+        let notePath = req.params.path;
+        if (!notePath.endsWith('.md')) {
+            notePath = `${notePath}.md`;
+        }
+        
+        const filePath = path.join(NOTES_DIR, notePath);
         
         // 确保笔记目录存在
         await fs.mkdir(path.dirname(filePath), { recursive: true });
