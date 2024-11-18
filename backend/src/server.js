@@ -127,8 +127,15 @@ app.post('/api/auth', (req, res) => {
 // 读取笔记
 app.get('/api/note/:path', authMiddleware, async (req, res) => {
     try {
-        const filePath = path.join(NOTES_DIR, `${req.params.path}.md`);
+        // 规范化路径，确保以 .md 结尾
+        let notePath = req.params.path;
+        if (!notePath.endsWith('.md')) {
+            notePath = `${notePath}.md`;
+        }
+        
+        const filePath = path.join(NOTES_DIR, notePath);
         try {
+            // 检查文件是否存在
             const stats = await fs.stat(filePath);
             const content = await fs.readFile(filePath, 'utf-8');
             
@@ -153,7 +160,13 @@ app.get('/api/note/:path', authMiddleware, async (req, res) => {
 // 保存笔记
 app.post('/api/note/:path', authMiddleware, async (req, res) => {
     try {
-        const filePath = path.join(NOTES_DIR, `${req.params.path}.md`);
+        // 规范化路径，确保以 .md 结尾
+        let notePath = req.params.path;
+        if (!notePath.endsWith('.md')) {
+            notePath = `${notePath}.md`;
+        }
+        
+        const filePath = path.join(NOTES_DIR, notePath);
         
         // 确保笔记目录存在
         await fs.mkdir(path.dirname(filePath), { recursive: true });
