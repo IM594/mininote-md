@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mini Note Md</title>
     <script>
-        (function() {
+        (function () {
             try {
                 const localSettings = localStorage.getItem('editor_settings');
                 if (localSettings) {
@@ -26,34 +27,46 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/javascript.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github.min.css" id="light-code-theme">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github-dark.min.css" id="dark-code-theme" disabled>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github.min.css"
+        id="light-code-theme">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/github-dark.min.css"
+        id="dark-code-theme" disabled>
+    <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="MiniNote" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
 </head>
+
 <body>
     <div id="loading-container" class="loading-container">
         <div class="loading-spinner"></div>
     </div>
-    
+
     <div id="auth-container" class="auth-container">
-        <div class="auth-logo">Mini Note Md</div>
-        <div class="auth-subtitle">轻量级的 Markdown 编辑器</div>
+        <div class="auth-logo">
+            <div class="auth-logo-icon"> <img src="/favicon/favicon.svg" alt="Mini Note Md" /></div>
+            <div class="auth-logo-text">Mini Note Md</div>
+        </div>
+
         <form class="auth-form" onsubmit="handleAuth(event)">
             <div class="auth-input-group">
-                <input type="password" id="password" placeholder="输入密码" autocomplete="current-password">
-                <div class="auth-error-message">密码错误</div>
+                <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
             </div>
             <button type="submit" class="auth-button">
                 <span class="spinner"></span>
-                <span class="button-text">登录</span>
+                <span class="button-text">登 录</span>
             </button>
         </form>
     </div>
-    
+
     <div id="editor-container" class="editor-container hidden">
         <div id="menu-button" class="menu-button">
             <div class="dot"></div>
         </div>
-        
+
         <div id="menu-panel" class="menu-panel hidden">
             <div class="menu-section">
                 <h3>笔记</h3>
@@ -132,4 +145,5 @@
     <script src="/js/auth.js"></script>
     <script src="/js/editor.js"></script>
 </body>
-</html> 
+
+</html>

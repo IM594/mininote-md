@@ -60,10 +60,23 @@ body {
     gap: 24px;
     background: var(--bg-color);
     transition: var(--transition);
-    padding: 20px;
+    text-align: center;
 }
 
 .auth-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.auth-logo-icon > img {
+    width: 5vh;
+    height: 5vh;
+}
+
+.auth-logo-text {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-color);
@@ -73,6 +86,7 @@ body {
     font-size: 13px;
     color: var(--text-color);
     opacity: 0.5;
+    text-align: center;
 }
 
 .auth-form {
@@ -80,7 +94,7 @@ body {
     max-width: 280px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .auth-input-group {
@@ -90,43 +104,42 @@ body {
 
 .auth-input-group input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px 16px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     font-size: 14px;
     background: var(--bg-color);
     color: var(--text-color);
     transition: var(--transition);
+    box-sizing: border-box;
 }
 
 .auth-input-group input:focus {
     border-color: var(--primary-color);
     outline: none;
+    box-shadow: 0 0 0 2px rgba(92, 124, 250, 0.1);
 }
 
 .auth-input-group.error input {
     border-color: #e03131;
+    box-shadow: 0 0 0 2px rgba(224, 49, 49, 0.1);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.auth-error-message {
-    color: #e03131;
-    font-size: 12px;
-    margin-top: 6px;
-    display: none;
-}
-
-.auth-input-group.error .auth-error-message {
-    display: block;
+.auth-input-group.error input:focus {
+    border-color: #e03131;
+    box-shadow: 0 0 0 2px rgba(224, 49, 49, 0.1);
 }
 
 .auth-button {
     width: 100%;
-    padding: 10px;
+    height: 42px;
+    padding: 0 16px;
     border: none;
     border-radius: var(--radius-md);
     background: var(--primary-color);
     color: white;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
@@ -134,6 +147,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    position: relative;
 }
 
 .auth-button:hover {
@@ -146,13 +160,16 @@ body {
 }
 
 .auth-button .spinner {
-    width: 14px;
-    height: 14px;
-    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
     border-top-color: white;
     animation: auth-spin 0.6s linear infinite;
     display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .auth-button.loading .spinner {
@@ -164,7 +181,7 @@ body {
 }
 
 @keyframes auth-spin {
-    to { transform: rotate(360deg); }
+    to { transform: translateX(-50%) rotate(360deg); }
 }
 
 .editor-container {
@@ -631,11 +648,6 @@ select:focus {
     opacity: 0.7;
 }
 
-.error {
-    text-align: center;
-    padding: 20px;
-    color: #f44336;
-}
 
 /* 添加按钮禁用状态样式 */
 button:disabled {
@@ -947,7 +959,7 @@ input[type="range"]::-moz-range-thumb {
     padding: 0 16px;
     font-size: 14px;
     white-space: nowrap;
-    min-width: 100px; /* 统最小宽度 */
+    min-width: 100px; /* 统最宽度 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1332,7 +1344,7 @@ td,
     transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 移除所有按钮的margin */
+/* 移除所有按钮margin */
 button {
     margin: 0;
 }
