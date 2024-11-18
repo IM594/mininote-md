@@ -1216,7 +1216,7 @@ function initResizer() {
         // 限制最小和最大宽度
         editorPercent = Math.max(minWidth, Math.min(maxWidth, editorPercent));
         
-        // 中点吸附
+        // 中��吸附
         if (Math.abs(editorPercent - 50) < snapThreshold) {
             editorPercent = 50;
         }
@@ -1327,7 +1327,7 @@ function handleTabKey(e) {
             }
         }
         
-        // 触发 input 事件��更新预览
+        // 触发 input 事件更新预览
         const inputEvent = new Event('input');
         editor.dispatchEvent(inputEvent);
     }
@@ -1543,4 +1543,176 @@ function updateLineHeightPreview(target, value) {
     
     // 使用防抖函数保存设置
     debouncedUpdateLineHeight(target, value);
+}
+
+// 添加 WebSocket 相关变量
+let ws = null;
+let lastReceivedContent = '';
+let isApplyingRemoteChanges = false;
+
+// 初始化 WebSocket 连接
+function initWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}?path=${currentPath}`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('[WebSocket] 连接已建立');
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            handleRemoteChanges(data);
+        } catch (error) {
+            console.error('[WebSocket] 处理消息失败:', error);
+        }
+    };
+    
+    ws.onclose = () => {
+        console.log('[WebSocket] 连接已关闭，尝试重新连接...');
+        setTimeout(initWebSocket, 3000);
+    };
+    
+    ws.onerror = (error) => {
+        console.error('[WebSocket] 连接错误:', error);
+    };
+}
+
+// 处理远程更改
+function handleRemoteChanges(data) {
+    if (data.type === 'content_update') {
+        const editor = document.getElementById('editor');
+        const currentContent = editor.value;
+        
+        // 避免处理自己发送的更改
+        if (data.content === currentContent) {
+            return;
+        }
+        
+        // 记录当前光标位置
+        const selectionStart = editor.selectionStart;
+        const selectionEnd = editor.selectionEnd;
+        
+        // 标记正在应用远程更改
+        isApplyingRemoteChanges = true;
+        
+        // 更新编辑器内容
+        editor.value = data.content;
+        lastReceivedContent = data.content;
+        
+        // 恢复光标位置
+        editor.setSelectionRange(selectionStart, selectionEnd);
+        
+        // 更新预览
+        renderPreview(data.content);
+        
+        // 取消标记
+        isApplyingRemoteChanges = false;
+    }
+}
+
+// 修改编辑器的 input 事件处理
+editor.addEventListener('input', () => {
+    const content = editor.value;
+    
+    // 立即更新预览
+    renderPreview(content);
+    
+    // 如果不是远程更改导致的输入，则广播更改
+    if (!isApplyingRemoteChanges && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'content_update',
+            content: content
+        }));
+    }
+    
+    // 延迟更新本地缓存和保存到服务器
+    updateLocalNoteCache(content);
+    saveNote(content, false, false);
+});
+
+// 修改 loadNote 函数，添加 WebSocket 初始化
+async function loadNote(path) {
+    console.log('[Editor] 开始加载笔记内容', getEditorElapsedTime());
+    const editor = document.getElementById('editor');
+    
+    try {
+        // 优先从服务器获取内容
+        const response = await RequestManager.fetch(`/api/note/${path}`, {
+            timeout: 5000
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch note: ${response.status}`);
+        }
+        
+        // 获取服务器内容
+        let serverContent = await response.text();
+        const serverTimestamp = new Date(response.headers.get('Last-Modified')).getTime() || Date.now();
+        
+        if (!serverContent) {
+            serverContent = ''; // 确保空笔记也是空字符串而不是 null
+        }
+        
+        // 更新编辑器内容和缓存
+        editor.value = serverContent;
+        lastSavedContent = serverContent;
+        renderPreview(serverContent);
+        
+        // 更新本地缓存
+        try {
+            localStorage.setItem(NOTE_CACHE_KEY + path, JSON.stringify({
+                content: serverContent,
+                timestamp: serverTimestamp
+            }));
+            updateNoteCacheList(path);
+            console.log('[Editor] 本地缓存已更新');
+        } catch (e) {
+            console.error('更新本地缓存失败:', e);
+        }
+        
+    } catch (error) {
+        console.error('加载笔记失败:', error);
+        if (error.message.includes('401') || error.message.includes('认证')) {
+            throw error;
+        }
+        
+        // 服务器请求失败时，尝试使用本地缓存
+        try {
+            const cachedNote = localStorage.getItem(NOTE_CACHE_KEY + path);
+            if (cachedNote) {
+                const cached = JSON.parse(cachedNote);
+                editor.value = cached.content;
+                lastSavedContent = cached.content;
+                renderPreview(cached.content);
+                showNotification('使用本地缓存的内容，无法连接服务器', true);
+                return;
+            }
+        } catch (e) {
+            console.error('读取本地缓存失败:', e);
+        }
+        
+        // 如果没有缓存且服务器请求失败，使用空内容
+        editor.value = '';
+        lastSavedContent = '';
+        renderPreview('');
+    }
+    
+    // 关闭旧的 WebSocket 连接
+    if (ws) {
+        ws.close();
+    }
+    
+    // 初始化新的 WebSocket 连接
+    initWebSocket();
+}
+
+// 修改 logout 函数，关闭 WebSocket 连接
+async function logout() {
+    if (ws) {
+        ws.close();
+    }
+    // ... 现有的 logout 代码 ...
 } 

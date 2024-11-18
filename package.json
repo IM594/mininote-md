@@ -12,7 +12,8 @@
     "express": "^4.17.1",
     "cookie-parser": "^1.4.6",
     "jsonwebtoken": "^9.0.2",
-    "crypto": "^1.0.1"
+    "crypto": "^1.0.1",
+    "ws": "^8.2.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
